@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Noise</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="logo">
+                <span class="brand">NEON NOISE</span>
+                <span class="model">AMBIENT SOUND GENERATOR</span>
+            </div>
+            <div class="transport">
+                <div class="ui-unit">
+                    <div class="ui-label">MASTER</div>
+                    <div id="master-knob"></div>
+                </div>
+                <div class="ui-unit">
+                    <button id="save-btn" class="btn-machine btn-square btn-transport save-btn-global"></button>
+                    <div class="ui-label">SAVE</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="load-btn" class="btn-machine btn-square btn-transport load-btn-global"></button>
+                    <div class="ui-label">LOAD</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="power-btn" class="btn-machine btn-square btn-transport"></button>
+                    <div class="ui-label transport-play-labels">
+                        <span class="label-default">START</span>
+                        <span class="label-shift line-secondary">STOP</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <!-- Digital Noise -->
+            <section class="channels-section">
+                <div class="section-tag">DIGITAL NOISE</div>
+                <div class="channels" id="channels"></div>
+            </section>
+
+            <!-- Vinyl Effect -->
+            <section class="vinyl-section" id="vinyl-section">
+                <div class="section-tag">VINYL</div>
+                <div class="vinyl-controls" id="vinyl-controls"></div>
+            </section>
+
+            <!-- Adaptive Mode -->
+            <section class="adaptive-section" id="adaptive-section">
+                <div class="section-tag">ADAPTIVE MODE</div>
+                <div class="adaptive-controls" id="adaptive-controls"></div>
+            </section>
+
+            <!-- Mic Visualizer (hidden by default) -->
+            <div class="mic-viz-container hidden" id="mic-viz-container"></div>
+
+            <!-- Output Visualizer -->
+            <div class="visualizer-container" id="visualizer-container"></div>
+        </main>
+
+        <footer>
+            <span id="status-text">READY</span>
+        </footer>
+    </div>
+
+    <!-- Presets Sidebar -->
+    <aside class="presets-sidebar" id="presets-sidebar">
+        <div class="sidebar-header">
+            <h2>PRESETS</h2>
+            <button class="close-btn" id="close-sidebar-btn">&times;</button>
+        </div>
+        <div class="sidebar-filters">
+            <button class="filter-btn active" id="filter-all">ALL</button>
+            <button class="filter-btn" id="filter-mine">MINE</button>
+        </div>
+        <div class="preset-feed" id="preset-feed"></div>
+        <div class="feed-pagination" id="feed-pagination"></div>
+    </aside>
+
+    <!-- WebSim API stub for local development -->
+    <script src="../websim-stub/websim.js"></script>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

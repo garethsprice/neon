@@ -1,0 +1,7 @@
+{
+    "openai": {
+        "apiKey": "sk-your-api-key-here",
+        "chatModel": "gpt-4o-mini",
+        "imageModel": "dall-e-3"
+    }
+}

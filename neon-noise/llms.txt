@@ -1,0 +1,99 @@
+# neon-noise-2
+
+Ambient noise generator built on create-neon-app base styling.
+
+## Run
+
+```bash
+python3 -m http.server 8000
+```
+
+## Structure
+
+```
+index.html      - App shell matching create-neon-app patterns
+style.css       - Base styles + noise-specific sections
+app.js          - Main app, imports neon-ui/neon-fx
+noise-engine.js - Web Audio noise generation
+cloud.js        - Preset save/load via neon-cloud
+```
+
+## External Libraries
+
+```javascript
+import { createKnob, createLedButton, createSpectrumAnalyzer, showToast } from '../neon-ui/index.js';
+import { AdaptiveNoise } from '../neon-fx/index.js';
+import { CloudStore, timeAgo } from '../neon-cloud/index.js';
+```
+
+## Layout
+
+- max-width: 700px (narrower than neon-drums)
+- Header: logo + master knob + save/load/power buttons
+- Channels section: 4 noise type knobs (cyan themed)
+- Adaptive section: LED toggle + sensitivity knob (magenta themed)
+- Visualizers: output spectrum + mic input (when adaptive)
+- Footer: status text centered
+- Sidebar: presets feed (slide-in from right)
+
+## Noise Types
+
+| Type | Color | Frequency |
+|------|-------|-----------|
+| Brown | orange | Low (rumble) |
+| Pink | magenta | Mid-low |
+| Green | green | Mid (bandpass) |
+| White | cyan | Full spectrum |
+
+## Key Components
+
+### Power Button
+```javascript
+powerBtn.classList.add('playing');  // Green glow
+powerBtn.classList.remove('playing');
+```
+
+### Adaptive Mode
+```css
+.adaptive-section.active  /* Magenta glow + pulse animation */
+```
+
+### Channel Knobs
+Large knobs with per-type colors.
+
+### Preset Feed
+Color bars show volume levels for each noise type.
+
+## NoiseEngine API
+
+```javascript
+engine.start()                      // Start AudioContext
+engine.stop()                       // Suspend
+engine.setMasterVolume(0-1)
+engine.setChannelVolume(type, 0-1)  // white|pink|brown|green
+engine.serialize()                  // { volumes, sensitivity, name }
+engine.deserialize(data)
+```
+
+## AdaptiveNoise Plugin
+
+```javascript
+const adaptive = new AdaptiveNoise(ctx, {
+    sensitivity: 50,
+    onUpdate: (controlValues) => {
+        // controlValues = { white, pink, brown, green } boost amounts
+    }
+});
+micSource.connect(adaptive.sidechainInput);
+adaptive.start();
+adaptive.stop();
+```
+
+## Design Conventions
+
+Follows create-neon-app patterns:
+- CSS variables for colors (--nc, --nm, --nl, --no, --np)
+- .btn-machine.btn-square.btn-transport for header buttons
+- .section-tag for section labels
+- .playing class for active states
+- neon-ui components for knobs, LEDs, analyzers

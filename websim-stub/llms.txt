@@ -1,0 +1,116 @@
+# websim-stub
+
+Local development stub for WebSim platform APIs. Enables neon apps to run without the WebSim environment.
+
+## Test Page
+
+Open `index.html` to interactively test all APIs:
+- Configure OpenAI
+- Test chat completions
+- Manage collections
+- Test user/image APIs
+
+## Usage
+
+```html
+<script src="../websim-stub/websim.js"></script>
+<script type="module" src="app.js"></script>
+```
+
+Must load before any module scripts that use WebsimSocket or websim APIs.
+
+## OpenAI Integration
+
+### Option 1: config.json (recommended)
+
+Copy `config.example.json` to `config.json` and add your API key:
+
+```json
+{
+    "openai": {
+        "apiKey": "sk-...",
+        "chatModel": "gpt-4o-mini",
+        "imageModel": "dall-e-3"
+    }
+}
+```
+
+### Option 2: Runtime configuration
+
+```javascript
+// Set API key and models (persists to localStorage)
+websim.config({
+    apiKey: 'sk-...',
+    chatModel: 'gpt-4o',
+    imageModel: 'dall-e-3'
+});
+
+// Check config status
+websim.getConfig();
+// { openai: { configured: true, chatModel: 'gpt-4o', imageModel: 'dall-e-3' } }
+
+// Clear config (revert to mock responses)
+websim.config({ apiKey: null });
+```
+
+Config priority: config.json > localStorage > mock responses.
+Falls back to mock responses on API errors.
+
+## Globals Provided
+
+### WebsimSocket
+
+```javascript
+const room = new WebsimSocket();
+const collection = room.collection('tracks');
+
+await collection.create({ name: 'Track 1', data: {} });
+await collection.update(id, { name: 'Track 2' });
+await collection.delete(id);
+await collection.get(id);
+await collection.getAll();
+await collection.filter(item => item.name === 'Track 1');
+collection.subscribe(items => console.log(items));
+```
+
+### websim
+
+```javascript
+const user = await websim.getCurrentUser();
+// { username, id, avatar_url }
+
+const response = await websim.chat.completions.create({
+    messages: [{ role: 'user', content: 'prompt' }]
+});
+// { content, role: 'assistant' }
+
+const image = await websim.imageGen({
+    prompt: 'description',
+    aspect_ratio: '1:1',      // 1:1, 16:9, 9:16, square, landscape, portrait, auto
+    size: '1024x1024',        // DALL-E: 1024x1024, 1792x1024, 1024x1792
+                              // gpt-image: 1024x1024, 1536x1024, 1024x1536, auto
+    model: 'gpt-image-1',     // gpt-image-1, dall-e-3, dall-e-2
+    quality: 'high'           // gpt-image: low, medium, high | dall-e-3: standard, hd
+});
+// { url: 'https://...' } or { url: 'data:image/png;base64,...' }
+```
+
+## Storage
+
+Data persists to localStorage:
+- `neon_websim_local_data` - Collection records
+- `neon_websim_username` - Generated username
+- `neon_websim_openai_config` - OpenAI API key and model
+
+## Mock Responses
+
+When OpenAI is not configured, AI chat returns contextual mock responses for:
+- Name suggestions
+- Commit messages
+- Creative prompts
+- Pattern generation (JSON)
+
+Image generation uses OpenAI (gpt-image-1, dall-e-3, or dall-e-2) when configured.
+- gpt-image-1: Always returns base64 PNG (converted to data URL)
+- dall-e-3/dall-e-2: Returns temporary URL (valid 60 min)
+- Mock mode: Returns gradient SVG placeholder

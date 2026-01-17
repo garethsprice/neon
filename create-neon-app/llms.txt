@@ -1,0 +1,132 @@
+# create-neon-app
+
+Starter kit for neon-styled web apps. Vanilla JS, no build step.
+
+## Run
+
+```bash
+python3 -m http.server 8000
+# or: npx serve
+```
+
+## Structure
+
+```
+index.html  - App shell: header, main, sidebar, footer
+style.css   - Neon theme, CSS variables, component styles
+main.js     - ES module, imports neon-ui + neon-fx
+```
+
+## External Libraries
+
+```javascript
+import { createKnob, createFxModule, showToast } from '../neon-ui/index.js';
+import { Filter, Reverb, Compressor } from '../neon-fx/index.js';
+```
+
+## Color Variables
+
+```css
+--nc: #00ffff;  /* cyan - primary, load buttons, links */
+--nm: #ff00ff;  /* magenta - secondary, save buttons, FX */
+--nl: #39ff14;  /* green - success, active states, play */
+--np: #bf5fff;  /* purple - labels, borders, panels */
+--nr: #ff3366;  /* red - errors, delete */
+--ny: #ffff00;  /* yellow - transport knobs */
+--no: #ff6600;  /* orange - instruments */
+```
+
+## Layout
+
+- `#app`: max-width 920px, centered, scanline overlay
+- `header`: logo left, transport controls right
+- `main > .main-layout`: flex row, main-column + sidebar
+- `footer`: status-text left, step-display right
+- Sidebar: 190px fixed width
+
+## Components
+
+### Buttons
+- `.btn-machine.btn-square.btn-transport` - 30x30 with LED indicator
+- `.save-btn-global` - magenta LED
+- `.load-btn-global` - cyan LED
+- `.playing` class - green glow when active
+- `.btn-led` - 28x14 toggle LED
+- `.btn-action` - text buttons
+
+### Knobs (neon-ui)
+```javascript
+const knob = createKnob({
+    value: 50, min: 0, max: 100,
+    color: 'yellow',  // cyan|magenta|yellow|green|orange|purple
+    size: 'small',    // small|medium|large
+    onChange: (val) => {}
+});
+container.appendChild(knob.element);
+```
+
+### FX Modules (neon-ui + neon-fx)
+```javascript
+const filter = new Filter(audioContext, { cutoff: 2000, resonance: 5 });
+
+const module = createFxModule({
+    name: 'FILTER',
+    enabled: false,
+    controls: [
+        { label: 'CUTOFF', value: 2000, min: 20, max: 20000, onChange: v => filter.setParam('cutoff', v) },
+        { label: 'RESO', value: 5, min: 0, max: 30, onChange: v => filter.setParam('resonance', v) }
+    ],
+    onToggle: (on) => { filter.bypassed = !on; }
+});
+```
+
+### Toasts
+```javascript
+showToast('Message', 'success');  // success|error|info
+```
+
+### Panels
+```html
+<section class="ui-panel">
+    <div class="section-tag">TITLE</div>
+    <div class="panel-content">...</div>
+</section>
+```
+
+## AI Copilot
+
+- Empty input: button shows "DEMO" with pulse animation
+- Has text: button shows "AI GEN"
+- `#ai-copilot.ai-loading` - shimmer animation during generation
+
+## Conventions
+
+- All caps for labels, tags, button text
+- Letter-spacing: 1-4px on labels
+- Font-weight: 700-900 for UI text
+- Transitions: 0.15s cubic-bezier(0.4, 0, 0.2, 1)
+- Glows: box-shadow with color + rgba spread
+- Borders: 1px solid rgba(color, 0.2-0.4)
+- Backgrounds: linear-gradient(180deg, lighter, darker)
+
+## Adding Features
+
+1. Add HTML structure to index.html
+2. Add styles following color/glow conventions
+3. Import components from neon-ui
+4. Import audio plugins from neon-fx
+5. Wire up event handlers in main.js
+
+## Audio Pattern
+
+```javascript
+let audioContext = null;
+
+async function initAudio() {
+    if (audioContext) return;
+    audioContext = new AudioContext();
+    // Create plugins, connect graph
+}
+
+// Call on user interaction (button click, etc.)
+```

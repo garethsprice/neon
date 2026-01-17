@@ -1,0 +1,158 @@
+# neon-fx
+
+Chainable Web Audio API plugins with standardized interface.
+
+## Import
+
+```javascript
+import { Filter, Compressor, Reverb, PluginChain } from '../neon-fx/index.js';
+```
+
+## Quick Start
+
+```javascript
+const ctx = new AudioContext();
+
+const filter = new Filter(ctx, { cutoff: 2000, resonance: 10 });
+const comp = new Compressor(ctx, { threshold: -18, ratio: 4 });
+const reverb = new Reverb(ctx, { mix: 30, decay: 2 });
+
+// Chain
+const chain = new PluginChain(ctx);
+chain.add(filter).add(comp).add(reverb);
+
+// Connect
+source.connect(chain.input);
+chain.connect(ctx.destination);
+
+// Adjust (value, rampTimeSeconds)
+filter.setParam('cutoff', 1000, 0.1);
+
+// Bypass
+filter.bypassed = true;
+```
+
+## Plugins
+
+### Filter
+```javascript
+new Filter(ctx, { type: 'lowpass', cutoff: 1000, resonance: 0 })
+// types: lowpass|highpass|bandpass|lowshelf|highshelf|peaking|notch|allpass
+// cutoff: 20-20000 Hz
+// resonance: 0-100
+```
+
+Variants: `LowpassFilter`, `HighpassFilter`, `BandpassFilter`
+
+### Saturation
+```javascript
+new Saturation(ctx, { drive: 50, mode: 'soft', mix: 100 })
+// drive: 0-100
+// mode: soft|tube|tape|hard
+// mix: 0-100 (dry/wet)
+```
+
+### Compressor
+```javascript
+new Compressor(ctx, { threshold: -24, ratio: 4, attack: 10, release: 100, gain: 0 })
+// threshold: -60 to 0 dB
+// ratio: 1-20
+// attack: 0-100 ms
+// release: 10-1000 ms
+// gain: -12 to 12 dB (makeup)
+```
+
+### Limiter
+```javascript
+new Limiter(ctx, { threshold: -3, release: 100 })
+```
+
+### Sidechain
+```javascript
+new Sidechain(ctx, { amount: 80, attack: 5, release: 100 })
+// Requires trigger input: sidechain.triggerInput
+
+const sidechain = new Sidechain(ctx);
+kickSource.connect(sidechain.triggerInput);
+bassSource.connect(sidechain.input);
+```
+
+### RhythmicSidechain
+```javascript
+new RhythmicSidechain(ctx, { amount: 80, rate: 4, curve: 50, sync: true })
+// rate: 1-16 (beats)
+// curve: 0-100 (shape)
+// Call .setBPM(120) for sync
+```
+
+### Reverb
+```javascript
+new Reverb(ctx, { mix: 30, decay: 2, preDelay: 10, damping: 50 })
+// mix: 0-100
+// decay: 0.1-10 seconds
+// preDelay: 0-100 ms
+// damping: 0-100
+```
+
+Variants: `PlateReverb`, `HallReverb`, `RoomReverb`
+
+### AdaptiveNoise
+```javascript
+new AdaptiveNoise(ctx, { type: 'vinyl', level: 30, reactive: true })
+// type: vinyl|tape|radio|digital
+// level: 0-100
+// reactive: responds to input level
+```
+
+## Plugin Interface
+
+All plugins extend `AudioPlugin`:
+
+```javascript
+plugin.input           // GainNode - connect source here
+plugin.output          // GainNode - connect to destination
+plugin.connect(dest)   // Connect output to destination/plugin
+plugin.disconnect()    // Disconnect output
+plugin.bypassed        // Get/set bypass state
+plugin.setParam(name, value, rampTime)  // Set parameter with optional ramp
+plugin.getParam(name)  // Get current parameter value
+plugin.destroy()       // Cleanup
+
+// Static metadata
+Plugin.id              // 'filter'
+Plugin.name            // 'Filter'
+Plugin.parameterDefinitions  // [{ name, label, min, max, default, unit, scale }]
+```
+
+## Chains
+
+### PluginChain (series)
+```javascript
+const chain = new PluginChain(ctx);
+chain.add(plugin1).add(plugin2);
+chain.remove(plugin1);
+chain.clear();
+chain.plugins  // Array of plugins
+```
+
+### ParallelChain
+```javascript
+const parallel = new ParallelChain(ctx);
+parallel.add(reverb, 0.5);   // plugin, gain
+parallel.add(delay, 0.3);
+```
+
+## Dynamic Creation
+
+```javascript
+import { createPlugin, getAvailablePlugins } from '../neon-fx/index.js';
+
+const ids = getAvailablePlugins();  // ['filter', 'compressor', ...]
+const plugin = await createPlugin('filter', ctx, { cutoff: 1000 });
+```
+
+## Registry IDs
+
+filter, lowpass-filter, highpass-filter, bandpass-filter, saturation,
+compressor, limiter, sidechain, rhythmic-sidechain, adaptive-noise,
+reverb, plate-reverb, hall-reverb, room-reverb

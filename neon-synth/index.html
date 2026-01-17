@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Synth</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="importmap">
+    {
+      "imports": {
+        "@tonejs/midi": "https://esm.sh/@tonejs/midi"
+      }
+    }
+    </script>
+    <!-- WebSim API stub for local development -->
+    <script src="../websim-stub/websim.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="logo">
+                <span class="brand">NEON SYNTH</span>
+                <span class="model">AI SYNTHESIZER</span>
+            </div>
+            <div class="transport">
+                <div class="ui-unit">
+                    <div class="ui-label">MASTER</div>
+                    <div id="master-volume-knob"></div>
+                </div>
+                <div class="ui-unit">
+                    <div class="ui-label">BPM</div>
+                    <input type="number" id="bpm-input" min="40" max="200" value="120">
+                </div>
+                <div class="ui-unit">
+                    <button id="save-btn" class="btn-machine btn-square btn-transport save-btn-global" title="Save Project"></button>
+                    <div class="ui-label">SAVE</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="load-btn" class="btn-machine btn-square btn-transport load-btn-global" title="Load Project"></button>
+                    <div class="ui-label">LOAD</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="community-toggle-btn" class="btn-machine btn-square btn-transport community-btn" title="Activity Feed"></button>
+                    <div class="ui-label">ACTIVITY</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="start-btn" class="btn-machine btn-square btn-transport" title="Play/Stop"></button>
+                    <div class="ui-label transport-play-labels">
+                        <span class="label-default">START</span>
+                        <span class="label-shift line-secondary">STOP</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- History viewing indicator -->
+        <div id="history-indicator" class="history-indicator"></div>
+
+        <main>
+            <div class="main-layout">
+                <div class="main-column">
+                    <!-- AI Copilot -->
+                    <section id="ai-copilot">
+                        <div class="section-tag">AI COPILOT</div>
+                        <div class="ai-input-group">
+                            <input type="text" id="ai-prompt" placeholder="e.g. 'Make a dark techno bassline'">
+                            <button id="ai-gen-btn" class="btn-action">AI GEN</button>
+                        </div>
+                        <div class="ai-mode-row">
+                            <div class="ai-mode-unit">
+                                <label>TARGET:</label>
+                                <button id="ai-target-btn" class="btn-action btn-ai-mode">TRACK</button>
+                            </div>
+                            <div class="ai-mode-unit">
+                                <label>WALKTHROUGH:</label>
+                                <button id="ai-walkthrough-btn" class="btn-led active"></button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Track Panel & Pattern Bank Row -->
+                    <section class="track-pattern-row">
+                        <!-- Track Panel (thumbnail, title, description) -->
+                        <div id="track-panel-container" class="track-panel-wrapper">
+                            <!-- TrackPanel component renders here -->
+                        </div>
+
+                        <!-- Pattern Bank (A-H) -->
+                        <div id="pattern-bank-container" class="pattern-bank-wrapper">
+                            <!-- PatternBank component renders here -->
+                        </div>
+                    </section>
+
+                    <!-- Piano Roll Section -->
+                    <section id="piano-roll-container" class="ui-panel piano-roll-panel">
+                        <!-- Piano Roll component renders here -->
+                    </section>
+
+                    <!-- Keyboard Section (sticky at bottom) -->
+                    <section class="ui-panel keyboard-panel">
+                        <div class="keyboard-header">
+                            <div class="section-tag">KEYBOARD</div>
+                            <div class="keyboard-controls">
+                                <div class="setting-group">
+                                    <label>KEY</label>
+                                    <select id="root-key-select">
+                                        <option value="0">C</option>
+                                        <option value="1">C#</option>
+                                        <option value="2">D</option>
+                                        <option value="3">D#</option>
+                                        <option value="4">E</option>
+                                        <option value="5">F</option>
+                                        <option value="6">F#</option>
+                                        <option value="7">G</option>
+                                        <option value="8">G#</option>
+                                        <option value="9">A</option>
+                                        <option value="10">A#</option>
+                                        <option value="11">B</option>
+                                    </select>
+                                </div>
+                                <div class="setting-group">
+                                    <label>OCT</label>
+                                    <select id="octave-select">
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3" selected>3</option>
+                                        <option value="4">4</option>
+                                        <option value="5">5</option>
+                                    </select>
+                                </div>
+                                <div class="setting-group">
+                                                    <label>RANGE</label>
+                                                    <select id="keyboard-size-select">
+                                                        <option value="12" selected>12</option>
+                                                        <option value="25">25</option>
+                                                        <option value="49">49</option>
+                                                        <option value="61">61</option>
+                                                        <option value="88">88</option>
+                                                    </select>
+                                                </div>
+                            </div>
+                        </div>
+                        <div id="keyboard"></div>
+                    </section>
+                </div>
+
+                <aside id="sidebar">
+                    <div class="plugin-header">SYNTH CONTROLS</div>
+
+                    <!-- Visualizer -->
+                    <div class="visualizer-container">
+                        <canvas id="visualizer"></canvas>
+                    </div>
+
+                    <!-- Oscillator -->
+                    <div class="fx-module">
+                        <div class="fx-module-header">
+                            <span class="fx-module-name">OSCILLATOR</span>
+                        </div>
+                        <div class="wave-selector">
+                            <button class="wave-btn active" data-wave="sawtooth">SAW</button>
+                            <button class="wave-btn" data-wave="square">SQR</button>
+                            <button class="wave-btn" data-wave="sine">SIN</button>
+                            <button class="wave-btn" data-wave="triangle">TRI</button>
+                        </div>
+                        <div class="fx-controls">
+                            <div id="detune-knob" class="knob-slot"></div>
+                        </div>
+                    </div>
+
+                    <!-- Envelope -->
+                    <div class="fx-module">
+                        <div class="fx-module-header">
+                            <span class="fx-module-name">ENVELOPE</span>
+                        </div>
+                        <div class="fx-controls">
+                            <div id="attack-knob" class="knob-slot"></div>
+                            <div id="decay-knob" class="knob-slot"></div>
+                            <div id="sustain-knob" class="knob-slot"></div>
+                            <div id="release-knob" class="knob-slot"></div>
+                        </div>
+                    </div>
+
+                    <!-- Filter -->
+                    <div class="fx-module">
+                        <div class="fx-module-header">
+                            <span class="fx-module-name">FILTER</span>
+                        </div>
+                        <div class="fx-controls">
+                            <div id="cutoff-knob" class="knob-slot"></div>
+                            <div id="reso-knob" class="knob-slot"></div>
+                        </div>
+                    </div>
+
+                    <!-- Effects -->
+                    <div class="fx-module">
+                        <div class="fx-module-header">
+                            <span class="fx-module-name">EFFECTS</span>
+                        </div>
+                        <div class="fx-controls">
+                            <div id="delay-knob" class="knob-slot"></div>
+                            <div id="delay-time-knob" class="knob-slot"></div>
+                            <div id="reverb-knob" class="knob-slot"></div>
+                        </div>
+                    </div>
+
+                </aside>
+            </div>
+        </main>
+
+        <footer>
+            <span id="status-text">SYSTEM ONLINE</span>
+            <div class="footer-actions">
+                <button id="midi-import-btn" class="btn-footer">IMPORT MIDI</button>
+                <button id="midi-export-btn" class="btn-footer">EXPORT MIDI</button>
+                <button id="reset-btn" class="btn-footer">RESET</button>
+            </div>
+            <span id="step-display">STEP: 1</span>
+        </footer>
+    </div>
+
+    <!-- Hidden file input for MIDI -->
+    <input type="file" id="midi-input" accept="audio/midi, audio/x-midi, .midi, .mid" style="display: none;">
+
+    <!-- Community Sidebar -->
+    <div id="community-sidebar" class="sidebar-popout">
+        <div class="sidebar-close-row">
+            <button id="close-community-btn" class="close-sidebar-btn">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="plugin-header sidebar-header">ACTIVITY</div>
+        <div class="feed-toggle-row">
+            <button id="feed-filter-all" class="btn-filter active">ALL TRACKS</button>
+            <button id="feed-filter-mine" class="btn-filter">MY TRACKS</button>
+        </div>
+        <div id="project-feed" class="feed-container">
+            <div class="feed-loading">CONNECTING...</div>
+        </div>
+        <div id="feed-pagination" class="feed-pagination-row"></div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

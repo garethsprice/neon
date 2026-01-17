@@ -1,0 +1,166 @@
+# neon-cloud
+
+Git-like versioning and collaboration for music apps. Works with WebsimSocket.
+
+## Import
+
+```javascript
+import { CloudStore, createCloudStore, diffState, hasChanges } from '../neon-cloud/index.js';
+```
+
+## Quick Start
+
+```javascript
+const store = createCloudStore({
+    room: new WebsimSocket(),
+    getCurrentUser: () => websim.getCurrentUser(),
+    generateCommitMessage: async (changes) => changes.summary[0] || 'Updated'
+});
+
+// Listen for events
+store.on('loaded', ({ track, commit, data }) => {
+    sequencer.deserialize(data);
+});
+
+store.on('committed', ({ track, commit }) => {
+    showToast(`Saved: ${commit.message}`);
+});
+
+// Commit changes
+await store.commit(sequencer.serialize(), { name: 'My Track', bpm: 120 });
+
+// Load track
+await store.loadTrack(trackId);
+```
+
+## CloudStore
+
+### Constructor
+```javascript
+new CloudStore({
+    room,                    // WebsimSocket instance
+    getCurrentUser,          // () => Promise<{ username }>
+    generateCommitMessage,   // (changes, prev, curr, opts) => Promise<string>
+    diffConfig,              // Custom diff config (optional)
+    collectionPrefix         // Namespace for collections (optional)
+})
+```
+
+### Methods
+```javascript
+// Tracks
+store.commit(data, { name, bpm, ... })     // Save changes, returns { track, commit }
+store.loadTrack(trackId)                    // Load track by ID
+store.loadTrackByName(owner, name)          // Load by owner/name
+store.newTrack()                            // Start fresh track
+store.deleteTrack(trackId)                  // Delete track
+
+// History
+store.getHistory(trackId)                   // Get commits for track
+store.loadCommit(commitId)                  // Load specific version
+store.isViewingHistory                      // True if viewing past commit
+
+// Social
+store.toggleLike(trackId)                   // Like/unlike track
+store.recordPlay(trackId)                   // Record play count
+
+// Feed
+store.getFeed({ filter, page, pageSize })   // Get paginated feed
+// filter: 'all' | 'mine'
+// Returns: { items, total, page, pageSize, totalPages }
+
+// State
+store.hasChanges(currentData)               // Check for uncommitted changes
+store.currentTrack                          // Current track object
+store.currentCommitId                       // Current commit ID
+store.tracks                                // All tracks array
+store.commits                               // All commits array
+```
+
+### Events
+```javascript
+store.on('loaded', ({ track, commit, data }) => {})
+store.on('committed', ({ track, commit, isNew }) => {})
+store.on('deleted', ({ trackId }) => {})
+store.on('liked', ({ trackId, liked, count }) => {})
+store.on('played', ({ trackId, count }) => {})
+store.on('tracks', (tracks) => {})
+store.on('commits', (commits) => {})
+store.on('change', ({ type, data }) => {})
+store.on('error', (error) => {})
+```
+
+## Diffing
+
+### diffState
+```javascript
+const changes = diffState(prevData, currData, config);
+// Returns:
+{
+    isInitial: boolean,
+    hasChanges: boolean,
+    scalar: { field: { prev, curr } },
+    objects: { field: { added: [], removed: [], modified: [] } },
+    arrays: { field: { prevLength, currLength, changed } },
+    summary: ['Changed BPM', 'Modified pattern A']
+}
+```
+
+### hasChanges
+```javascript
+if (hasChanges(prevData, currData, config)) {
+    // Data has changed
+}
+```
+
+### Diff Config
+```javascript
+const config = {
+    scalarFields: ['bpm', 'name'],           // Simple equality check
+    objectFields: ['patterns', 'params'],     // Track key changes
+    arrayFields: ['measures'],                // Track length/content
+    ignoreFields: ['_id', 'updatedAt']        // Skip these fields
+};
+```
+
+## Data Model
+
+### Track
+```javascript
+{
+    id, owner, name, thumbnailUrl,
+    latestCommitId, rootTrackId, rootCommitId,
+    stats: { plays, likes, commits },
+    createdAt, updatedAt
+}
+```
+
+### Commit
+```javascript
+{
+    id, trackId, parentId, message,
+    data: { /* serialized state */ },
+    changes: { /* diff result */ },
+    owner, createdAt
+}
+```
+
+## Utilities
+
+```javascript
+import { timeAgo, deepEqual, generateId, debounce } from '../neon-cloud/index.js';
+
+timeAgo(timestamp)        // '2 hours ago'
+deepEqual(a, b)           // Deep object comparison
+generateId()              // Random ID string
+debounce(fn, ms)          // Debounced function
+```
+
+## Collections (WebsimSocket)
+
+- `track_v1` - Track metadata
+- `commit_v1` - Commit history
+- `like_v1` - Likes
+- `play_v1` - Play counts
+
+Prefix with `collectionPrefix` option to namespace.

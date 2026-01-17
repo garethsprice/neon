@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon FX - Audio Plugin Preview</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #0a0014 0%, #1a0033 50%, #0d001a 100%);
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #fff;
+        }
+        h1 {
+            font-size: 2.5em;
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #00ffff 0%, #ff00ff 50%, #bf5fff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0 0 40px 0;
+        }
+        .transport {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(191, 95, 255, 0.2);
+            border-radius: 8px;
+        }
+        .play-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid #00ffff;
+            background: linear-gradient(180deg, rgba(0, 255, 255, 0.2) 0%, transparent 100%);
+            color: #00ffff;
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .play-btn:hover {
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+            transform: scale(1.05);
+        }
+        .play-btn.playing {
+            background: #00ffff;
+            color: #0a0014;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.7);
+        }
+        .source-select {
+            display: flex;
+            gap: 10px;
+        }
+        .source-btn {
+            padding: 10px 20px;
+            background: rgba(191, 95, 255, 0.1);
+            border: 1px solid rgba(191, 95, 255, 0.3);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.8em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        .source-btn.active {
+            background: rgba(191, 95, 255, 0.3);
+            border-color: #bf5fff;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(191, 95, 255, 0.3);
+        }
+        .source-btn:hover:not(.active) {
+            background: rgba(191, 95, 255, 0.2);
+        }
+        .volume-section {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .volume-label {
+            font-size: 0.7em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(0, 255, 255, 0.7);
+        }
+        .plugin-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(191, 95, 255, 0.05) 0%, rgba(0, 0, 0, 0.2) 100%);
+            border: 1px solid rgba(191, 95, 255, 0.2);
+            border-radius: 8px;
+        }
+        .plugin-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .plugin-name {
+            font-size: 1em;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #bf5fff;
+            text-shadow: 0 0 10px rgba(191, 95, 255, 0.5);
+        }
+        .plugin-description {
+            font-size: 0.75em;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .bypass-btn {
+            margin-left: auto;
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid rgba(255, 51, 102, 0.3);
+            color: rgba(255, 51, 102, 0.6);
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.65em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        .bypass-btn.bypassed {
+            background: rgba(255, 51, 102, 0.2);
+            border-color: #ff3366;
+            color: #ff3366;
+            box-shadow: 0 0 10px rgba(255, 51, 102, 0.3);
+        }
+        .plugin-params {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+            align-items: flex-start;
+        }
+        .mode-select {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .mode-label {
+            font-size: 0.55em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(0, 255, 255, 0.7);
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 6px;
+        }
+        .mode-btn {
+            padding: 6px 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            color: rgba(0, 255, 255, 0.6);
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.6em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+        .mode-btn.active {
+            background: rgba(0, 255, 255, 0.2);
+            border-color: #00ffff;
+            color: #00ffff;
+        }
+        .meter {
+            width: 100%;
+            height: 4px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 2px;
+            margin-top: 15px;
+            overflow: hidden;
+        }
+        .meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #39ff14, #ffff00, #ff3366);
+            width: 0%;
+            transition: width 0.05s;
+        }
+        .instructions {
+            margin-top: 40px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 8px;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .instructions h3 {
+            color: #00ffff;
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+            letter-spacing: 2px;
+        }
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        /* Knob styles (inline since we can't import from neon-ui easily) */
+        .neon-knob {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 50px;
+        }
+        .neon-knob label {
+            font-size: 0.55em;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(0, 255, 255, 0.7);
+        }
+        .neon-knob-wrapper {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            cursor: ns-resize;
+        }
+        .neon-knob-outer {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: linear-gradient(180deg, #1a1a2e 0%, #0a0a14 100%);
+            border: 2px solid rgba(0, 255, 255, 0.2);
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.8), 0 0 15px rgba(0, 255, 255, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: all 0.2s;
+        }
+        .neon-knob-wrapper:hover .neon-knob-outer {
+            border-color: rgba(0, 255, 255, 0.5);
+            box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.8), 0 0 25px rgba(0, 255, 255, 0.2);
+        }
+        .neon-knob-indicator {
+            position: absolute;
+            width: 3px;
+            height: 12px;
+            background: #00ffff;
+            border-radius: 2px;
+            top: 4px;
+            transform-origin: 50% 18px;
+            box-shadow: 0 0 12px #00ffff, 0 0 25px rgba(0, 255, 255, 0.5);
+        }
+        .neon-knob-value {
+            font-size: 0.55em;
+            margin-top: 5px;
+            color: #00ffff;
+            font-family: monospace;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Neon FX</h1>
+
+    <div class="transport">
+        <button class="play-btn" id="play-btn">&#9654;</button>
+        <div class="source-select">
+            <button class="source-btn active" data-source="sine">Sine</button>
+            <button class="source-btn" data-source="saw">Saw</button>
+            <button class="source-btn" data-source="square">Square</button>
+            <button class="source-btn" data-source="noise">Noise</button>
+        </div>
+        <div class="volume-section">
+            <span class="volume-label">Volume</span>
+            <div id="volume-knob"></div>
+        </div>
+    </div>
+
+    <div id="plugins-container"></div>
+
+    <div class="instructions">
+        <h3>How to Use</h3>
+        <ul>
+            <li>Click the play button to start audio (requires user interaction)</li>
+            <li>Choose a sound source: Sine, Saw, Square wave, or White Noise</li>
+            <li>Drag knobs up/down to adjust parameters</li>
+            <li>Click "Bypass" to disable individual plugins</li>
+            <li>The signal chain is: Source -> Filter -> Saturation -> Compressor -> Reverb -> Output</li>
+        </ul>
+    </div>
+
+    <script type="module">
+        import {
+            Filter,
+            Saturation,
+            Compressor,
+            Reverb,
+            RhythmicSidechain,
+            PluginChain
+        } from './index.js';
+
+        let audioContext = null;
+        let isPlaying = false;
+        let oscillator = null;
+        let noiseNode = null;
+        let sourceGain = null;
+        let masterGain = null;
+        let currentSource = 'sine';
+        let plugins = {};
+        let chain = null;
+
+        const playBtn = document.getElementById('play-btn');
+        const pluginsContainer = document.getElementById('plugins-container');
+
+        // Create a simple knob component
+        function createKnob(options = {}) {
+            const {
+                label = '',
+                value = 0,
+                min = 0,
+                max = 100,
+                step = 1,
+                onChange = null,
+                formatValue = v => Math.round(v)
+            } = options;
+
+            let currentVal = Math.max(min, Math.min(max, value));
+            let startY = 0;
+            let startVal = 0;
+
+            const element = document.createElement('div');
+            element.className = 'neon-knob';
+            element.innerHTML = `
+                ${label ? `<label>${label}</label>` : ''}
+                <div class="neon-knob-wrapper">
+                    <div class="neon-knob-outer">
+                        <div class="neon-knob-indicator"></div>
+                    </div>
+                </div>
+                <div class="neon-knob-value">${formatValue(currentVal)}</div>
+            `;
+
+            const wrapper = element.querySelector('.neon-knob-wrapper');
+            const indicator = element.querySelector('.neon-knob-indicator');
+            const valDisplay = element.querySelector('.neon-knob-value');
+
+            const updateUI = (val) => {
+                const percent = (max === min) ? 0 : (val - min) / (max - min);
+                indicator.style.transform = `rotate(${-135 + (percent * 270)}deg)`;
+                valDisplay.textContent = formatValue(val);
+            };
+
+            updateUI(currentVal);
+
+            const handleMove = (e) => {
+                const y = e.clientY ?? e.touches?.[0]?.clientY;
+                if (y === undefined) return;
+
+                const delta = startY - y;
+                const range = max - min;
+                let newVal = startVal + delta * (range / 150);
+
+                newVal = Math.round(newVal / step) * step;
+                newVal = Math.max(min, Math.min(max, newVal));
+
+                if (newVal !== currentVal) {
+                    currentVal = newVal;
+                    updateUI(currentVal);
+                    onChange?.(currentVal);
+                }
+                if (e.cancelable) e.preventDefault();
+            };
+
+            const stop = () => {
+                document.removeEventListener('mousemove', handleMove);
+                document.removeEventListener('mouseup', stop);
+                document.removeEventListener('touchmove', handleMove);
+                document.removeEventListener('touchend', stop);
+            };
+
+            const start = (e) => {
+                startY = e.clientY ?? e.touches?.[0]?.clientY;
+                startVal = currentVal;
+                document.addEventListener('mousemove', handleMove);
+                document.addEventListener('mouseup', stop);
+                document.addEventListener('touchmove', handleMove, { passive: false });
+                document.addEventListener('touchend', stop);
+                e.preventDefault();
+            };
+
+            wrapper.addEventListener('mousedown', start);
+            wrapper.addEventListener('touchstart', start, { passive: false });
+
+            return {
+                element,
+                getValue: () => currentVal,
+                setValue: (val) => {
+                    currentVal = Math.max(min, Math.min(max, val));
+                    updateUI(currentVal);
+                }
+            };
+        }
+
+        // Initialize audio context and plugins
+        function initAudio() {
+            if (audioContext) return;
+
+            audioContext = new AudioContext();
+
+            // Create source gain
+            sourceGain = audioContext.createGain();
+            sourceGain.gain.value = 0.3;
+
+            // Create master gain
+            masterGain = audioContext.createGain();
+            masterGain.gain.value = 0.7;
+
+            // Create plugins
+            plugins.filter = new Filter(audioContext, { cutoff: 2000, resonance: 20 });
+            plugins.saturation = new Saturation(audioContext, { drive: 30, mix: 100 });
+            plugins.compressor = new Compressor(audioContext, { threshold: -18, ratio: 4 });
+            plugins.reverb = new Reverb(audioContext, { mix: 25, decay: 1.5, damping: 40 });
+            plugins.sidechain = new RhythmicSidechain(audioContext, { amount: 0, rate: 4, bpm: 120 });
+
+            // Create chain
+            chain = new PluginChain(audioContext);
+            chain.add(plugins.filter);
+            chain.add(plugins.saturation);
+            chain.add(plugins.compressor);
+            chain.add(plugins.sidechain);
+            chain.add(plugins.reverb);
+
+            // Connect
+            sourceGain.connect(chain.input);
+            chain.connect(masterGain);
+            masterGain.connect(audioContext.destination);
+
+            // Build UI
+            buildPluginUI();
+        }
+
+        // Build plugin UI
+        function buildPluginUI() {
+            const pluginConfigs = [
+                {
+                    key: 'filter',
+                    name: 'Filter',
+                    description: 'Lowpass filter with resonance',
+                    color: 'cyan',
+                    params: [
+                        { name: 'cutoff', label: 'Cutoff', min: 20, max: 20000, step: 10, format: v => `${Math.round(v)}Hz` },
+                        { name: 'resonance', label: 'Reso', min: 0, max: 100, step: 1, format: v => `${Math.round(v)}%` }
+                    ]
+                },
+                {
+                    key: 'saturation',
+                    name: 'Saturation',
+                    description: 'Adds warmth and harmonic distortion',
+                    color: 'orange',
+                    modes: ['soft', 'tube', 'tape', 'hard'],
+                    params: [
+                        { name: 'drive', label: 'Drive', min: 0, max: 100, step: 1, format: v => `${Math.round(v)}%` },
+                        { name: 'mix', label: 'Mix', min: 0, max: 100, step: 1, format: v => `${Math.round(v)}%` }
+                    ]
+                },
+                {
+                    key: 'compressor',
+                    name: 'Compressor',
+                    description: 'Dynamics control',
+                    color: 'magenta',
+                    params: [
+                        { name: 'threshold', label: 'Thresh', min: -60, max: 0, step: 1, format: v => `${Math.round(v)}dB` },
+                        { name: 'ratio', label: 'Ratio', min: 1, max: 20, step: 0.5, format: v => `${v.toFixed(1)}:1` },
+                        { name: 'attack', label: 'Attack', min: 0, max: 200, step: 1, format: v => `${Math.round(v)}ms` },
+                        { name: 'release', label: 'Release', min: 10, max: 1000, step: 10, format: v => `${Math.round(v)}ms` },
+                        { name: 'makeupGain', label: 'Makeup', min: -12, max: 12, step: 0.5, format: v => `${v > 0 ? '+' : ''}${v.toFixed(1)}dB` }
+                    ],
+                    hasMeter: true
+                },
+                {
+                    key: 'sidechain',
+                    name: 'Rhythmic Sidechain',
+                    description: 'Tempo-synced pumping effect',
+                    color: 'green',
+                    params: [
+                        { name: 'amount', label: 'Amount', min: 0, max: 100, step: 1, format: v => `${Math.round(v)}%` },
+                        { name: 'rate', label: 'Rate', min: 1, max: 8, step: 1, format: v => `${v}x` },
+                        { name: 'attack', label: 'Attack', min: 1, max: 100, step: 1, format: v => `${Math.round(v)}ms` },
+                        { name: 'release', label: 'Release', min: 10, max: 500, step: 5, format: v => `${Math.round(v)}ms` },
+                        { name: 'bpm', label: 'BPM', min: 60, max: 200, step: 1, format: v => Math.round(v) }
+                    ]
+                },
+                {
+                    key: 'reverb',
+                    name: 'Reverb',
+                    description: 'Algorithmic reverb with adjustable decay',
+                    color: 'purple',
+                    params: [
+                        { name: 'mix', label: 'Mix', min: 0, max: 100, step: 1, format: v => `${Math.round(v)}%` },
+                        { name: 'decay', label: 'Decay', min: 0.1, max: 8, step: 0.1, format: v => `${v.toFixed(1)}s` },
+                        { name: 'damping', label: 'Damp', min: 0, max: 100, step: 1, format: v => `${Math.round(v)}%` },
+                        { name: 'preDelay', label: 'Pre-Dly', min: 0, max: 200, step: 5, format: v => `${Math.round(v)}ms` }
+                    ]
+                }
+            ];
+
+            pluginsContainer.innerHTML = '';
+
+            pluginConfigs.forEach(config => {
+                const section = document.createElement('div');
+                section.className = 'plugin-section';
+
+                const header = document.createElement('div');
+                header.className = 'plugin-header';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'plugin-name';
+                nameSpan.textContent = config.name;
+
+                const descSpan = document.createElement('span');
+                descSpan.className = 'plugin-description';
+                descSpan.textContent = config.description;
+
+                const bypassBtn = document.createElement('button');
+                bypassBtn.className = 'bypass-btn';
+                bypassBtn.textContent = 'Bypass';
+                bypassBtn.onclick = () => {
+                    const plugin = plugins[config.key];
+                    plugin.bypassed = !plugin.bypassed;
+                    bypassBtn.classList.toggle('bypassed', plugin.bypassed);
+                };
+
+                header.appendChild(nameSpan);
+                header.appendChild(descSpan);
+                header.appendChild(bypassBtn);
+
+                const paramsDiv = document.createElement('div');
+                paramsDiv.className = 'plugin-params';
+
+                // Mode selector for saturation
+                if (config.modes) {
+                    const modeDiv = document.createElement('div');
+                    modeDiv.className = 'mode-select';
+
+                    const modeLabel = document.createElement('div');
+                    modeLabel.className = 'mode-label';
+                    modeLabel.textContent = 'Mode';
+
+                    const modeButtons = document.createElement('div');
+                    modeButtons.className = 'mode-buttons';
+
+                    config.modes.forEach((mode, i) => {
+                        const btn = document.createElement('button');
+                        btn.className = 'mode-btn' + (i === 0 ? ' active' : '');
+                        btn.textContent = mode;
+                        btn.onclick = () => {
+                            modeButtons.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                            plugins[config.key].mode = mode;
+                        };
+                        modeButtons.appendChild(btn);
+                    });
+
+                    modeDiv.appendChild(modeLabel);
+                    modeDiv.appendChild(modeButtons);
+                    paramsDiv.appendChild(modeDiv);
+                }
+
+                // Parameter knobs
+                config.params.forEach(param => {
+                    const plugin = plugins[config.key];
+                    const knob = createKnob({
+                        label: param.label,
+                        value: plugin.getParam(param.name),
+                        min: param.min,
+                        max: param.max,
+                        step: param.step,
+                        formatValue: param.format,
+                        onChange: (val) => {
+                            plugin.setParam(param.name, val, 0.05);
+                        }
+                    });
+                    paramsDiv.appendChild(knob.element);
+                });
+
+                section.appendChild(header);
+                section.appendChild(paramsDiv);
+
+                // Compressor gain reduction meter
+                if (config.hasMeter) {
+                    const meter = document.createElement('div');
+                    meter.className = 'meter';
+                    const meterFill = document.createElement('div');
+                    meterFill.className = 'meter-fill';
+                    meter.appendChild(meterFill);
+                    section.appendChild(meter);
+
+                    // Update meter
+                    setInterval(() => {
+                        if (plugins.compressor) {
+                            const reduction = Math.abs(plugins.compressor.reduction);
+                            meterFill.style.width = `${Math.min(100, reduction * 5)}%`;
+                        }
+                    }, 50);
+                }
+
+                pluginsContainer.appendChild(section);
+            });
+
+            // Volume knob
+            const volumeContainer = document.getElementById('volume-knob');
+            const volumeKnob = createKnob({
+                value: 70,
+                min: 0,
+                max: 100,
+                step: 1,
+                formatValue: v => Math.round(v),
+                onChange: (val) => {
+                    if (masterGain) {
+                        masterGain.gain.setTargetAtTime(val / 100, audioContext.currentTime, 0.02);
+                    }
+                }
+            });
+            volumeContainer.appendChild(volumeKnob.element);
+        }
+
+        // Create oscillator
+        function createOscillator(type) {
+            if (oscillator) {
+                oscillator.stop();
+                oscillator.disconnect();
+            }
+            if (noiseNode) {
+                noiseNode.stop();
+                noiseNode.disconnect();
+                noiseNode = null;
+            }
+
+            if (type === 'noise') {
+                // Create white noise
+                const bufferSize = audioContext.sampleRate * 2;
+                const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                noiseNode = audioContext.createBufferSource();
+                noiseNode.buffer = buffer;
+                noiseNode.loop = true;
+                noiseNode.connect(sourceGain);
+                noiseNode.start();
+            } else {
+                oscillator = audioContext.createOscillator();
+                oscillator.type = type === 'saw' ? 'sawtooth' : type;
+                oscillator.frequency.value = 110; // A2
+                oscillator.connect(sourceGain);
+                oscillator.start();
+            }
+        }
+
+        // Toggle playback
+        function togglePlay() {
+            if (!isPlaying) {
+                initAudio();
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                createOscillator(currentSource);
+                plugins.sidechain.start();
+                isPlaying = true;
+                playBtn.classList.add('playing');
+                playBtn.innerHTML = '&#9632;'; // Stop symbol
+            } else {
+                if (oscillator) {
+                    oscillator.stop();
+                    oscillator.disconnect();
+                    oscillator = null;
+                }
+                if (noiseNode) {
+                    noiseNode.stop();
+                    noiseNode.disconnect();
+                    noiseNode = null;
+                }
+                plugins.sidechain.stop();
+                isPlaying = false;
+                playBtn.classList.remove('playing');
+                playBtn.innerHTML = '&#9654;'; // Play symbol
+            }
+        }
+
+        // Event listeners
+        playBtn.addEventListener('click', togglePlay);
+
+        document.querySelectorAll('.source-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.source-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentSource = btn.dataset.source;
+                if (isPlaying) {
+                    createOscillator(currentSource);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

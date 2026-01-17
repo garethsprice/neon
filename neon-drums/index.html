@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Drum Machine - AI-909 Rhythm Composer</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <canvas id="visualizer-bg"></canvas>
+    <div id="app">
+        <header>
+            <div class="logo">
+                <span class="brand">NEON DRUMS</span>
+                <span class="model">AI-909 RHYTHM COMPOSER</span>
+            </div>
+            <div class="transport">
+                <div class="ui-unit">
+                    <div class="ui-label">BPM</div>
+                    <div id="bpm-knob-container"></div>
+                </div>
+                <div class="ui-unit">
+                    <div class="ui-label">STEPS</div>
+                    <div id="step-count-knob-container"></div>
+                </div>
+                <div class="ui-unit">
+                    <div class="ui-label">SCALE</div>
+                    <div id="scale-knob-container"></div>
+                </div>
+                <div class="ui-unit">
+                    <div class="ui-label">SHUFFLE</div>
+                    <div id="shuffle-knob-container"></div>
+                </div>
+                <div class="ui-unit">
+                    <div class="ui-label">MASTER</div>
+                    <div id="master-volume-knob-container"></div>
+                </div>
+                <div class="ui-unit">
+                    <div class="ui-label">SHIFT</div>
+                    <button id="shift-btn" class="btn-led"></button>
+                </div>
+                <div class="transport-break" aria-hidden="true"></div>
+                <div class="ui-unit">
+                    <button id="global-save-btn" class="btn-machine btn-square btn-transport save-btn-global"></button>
+                    <div class="ui-label">SAVE</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="global-load-btn" class="btn-machine btn-square btn-transport load-btn-global"></button>
+                    <div class="ui-label">LOAD</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="community-toggle-btn" class="btn-machine btn-square btn-transport community-btn"></button>
+                    <div class="ui-label">ACTIVITY</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="play-pause" class="btn-machine btn-square btn-transport"></button>
+                    <div class="ui-label transport-play-labels">
+                        <span class="label-default">START</span>
+                        <span class="label-shift line-secondary">RESET</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- History viewing indicator -->
+        <div id="history-indicator" class="history-indicator"></div>
+
+        <main>
+            <div class="main-layout">
+                <div class="sequencer-column">
+                    <!-- AI Copilot -->
+                    <section id="ai-copilot">
+                        <div class="section-tag">AI COPILOT</div>
+                        <div class="ai-input-group">
+                            <input type="text" id="ai-prompt" placeholder="Describe a neon beat...">
+                            <button id="ai-gen-btn" class="btn-action">AI GEN</button>
+                        </div>
+                        <div class="ai-mode-row">
+                            <div class="ai-mode-unit">
+                                <label>TARGET:</label>
+                                <button id="ai-mode-btn" class="btn-action btn-ai-mode">PATTERN</button>
+                            </div>
+                            <div class="ai-mode-unit">
+                                <label>WALKTHROUGH:</label>
+                                <button id="ai-walkthrough-btn" class="btn-led active"></button>
+                            </div>
+
+                        </div>
+                    </section>
+
+                    <div class="controls-mid-row">
+                        <!-- Track Mode Section -->
+                        <section id="track-mode-section" class="ui-panel">
+                            <div class="section-tag">TRACK WRITE / SONG</div>
+                            <div class="track-header-row">
+                                <div id="track-thumbnail-container" class="track-thumbnail" data-tooltip="REGENERATE ART">
+                                    <div class="thumb-placeholder"><i data-lucide="image"></i></div>
+                                </div>
+                                <div class="track-title-column">
+                                    <div class="track-name-row">
+                                        <input type="text" id="track-name-input" placeholder="Untitled Track">
+                                        <button id="track-info-btn" class="btn-icon-action" data-tooltip="TRACK BRIEF">
+                                            <i data-lucide="info"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="track-description-panel" class="description-panel hidden">
+                                <textarea id="track-description-input" placeholder="Enter a creative brief for this track..."></textarea>
+                            </div>
+                            <div class="track-controls">
+                                <div class="track-info">
+                                    <div class="info-unit">
+                                        <label class="ui-label">MEASURE</label>
+                                        <div class="track-info-group">
+                                            <input type="number" id="track-measure-input" value="1" min="1" max="96">
+                                            <span class="measure-total" id="measure-total-label">/ 96</span>
+                                        </div>
+                                    </div>
+                                    <div class="info-unit">
+                                        <label class="ui-label">PATTERN</label>
+                                        <div class="track-info-group">
+                                            <span id="track-pattern-display">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="track-actions">
+                                    <div class="ui-unit">
+                                        <button id="song-mode-toggle" class="btn-led"></button>
+                                        <div class="ui-label">TRACK PLAY</div>
+                                    </div>
+                                    <div class="ui-unit">
+                                        <button id="track-mode-toggle" class="btn-led"></button>
+                                        <div class="ui-label track-mode-labels">
+                                            <div class="label-default">TRACK WRITE</div>
+                                            <div class="label-shift">TRACK <span class="line-secondary">RESET</span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Pattern and Global Actions -->
+                        <section id="actions-bar" class="ui-panel">
+                            <div class="actions-header">
+                                <div class="section-tag">PATTERN BANK</div>
+                                <div class="pattern-controls-row">
+                                    <div class="ui-unit">
+                                        <button class="bank-btn btn-led active" data-bank="1"></button>
+                                        <div class="ui-label">I</div>
+                                    </div>
+                                    <div class="ui-unit">
+                                        <button class="bank-btn btn-led" data-bank="2"></button>
+                                        <div class="ui-label">II</div>
+                                    </div>
+                                    <div class="ui-unit">
+                                        <button id="clear-btn" class="btn-led"></button>
+                                        <div class="ui-label clear-labels">
+                                            <span>CLEAR</span>
+                                            <span class="clear-all-indicator">ALL</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="pattern-selector" class="pattern-group"></div>
+                        </section>
+                    </div>
+
+                    <!-- Instrument Selector -->
+                    <section id="instrument-select">
+                        <div class="section-tag">INSTRUMENT SELECT</div>
+                        <div id="inst-button-group" class="inst-grid">
+                            <!-- Instrument selector buttons injected here -->
+                        </div>
+                    </section>
+
+                    <!-- Instrument Parameter Knobs Section -->
+                    <section id="instrument-controls">
+                        <div class="control-header">
+                            <h2 id="current-inst-name">BASS DRUM</h2>
+                        </div>
+                        <div id="knobs-container" class="knobs-grid">
+                            <!-- Knobs will be injected here by JS -->
+                        </div>
+                    </section>
+
+                    <!-- Sequencer Grid -->
+                    <section id="sequencer">
+                        <div class="steps-grid" id="steps-container">
+                            <!-- 16 steps will be injected here -->
+                        </div>
+                    </section>
+                </div>
+
+                <aside id="plugin-sidebar">
+                    <div class="plugin-header">CH-PLUGINS</div>
+                    <div class="fx-pager">
+                        <button id="fx-prev" class="btn-action">&lt;</button>
+                        <span id="fx-page-info">1 / 3</span>
+                        <button id="fx-next" class="btn-action">&gt;</button>
+                    </div>
+                    <div id="fx-controls-container">
+                        <!-- FX controls will be injected here -->
+                    </div>
+                </aside>
+            </div>
+        </main>
+
+        <footer>
+            <div class="status-bar">
+                <span id="step-display">STEP: 1</span>
+                <span id="status-text">SYSTEM ONLINE</span>
+            </div>
+        </footer>
+    </div>
+
+    <div id="community-sidebar" class="sidebar-popout">
+        <div class="sidebar-close-row">
+            <button id="close-community-btn" class="close-sidebar-btn">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="plugin-header sidebar-header">ACTIVITY</div>
+        <div class="feed-toggle-row">
+            <button id="feed-filter-all" class="btn-filter active">ALL TRACKS</button>
+            <button id="feed-filter-mine" class="btn-filter">MY TRACKS</button>
+        </div>
+        <div id="project-feed" class="feed-container">
+            <div class="feed-loading">CONNECTING...</div>
+        </div>
+        <div id="feed-pagination" class="feed-pagination-row"></div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <!-- WebSim API stub for local development -->
+    <script src="../websim-stub/websim.js"></script>
+    <script type="module" src="main.js"></script>
+</body>
+</html>

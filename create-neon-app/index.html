@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>My Neon App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <div class="logo">
+                <span class="brand">MY NEON APP</span>
+                <span class="model">YOUR TAGLINE HERE</span>
+            </div>
+            <div class="transport">
+                <div class="ui-unit">
+                    <div class="ui-label">MASTER</div>
+                    <div id="master-volume-knob"></div>
+                </div>
+                <div class="ui-unit">
+                    <button id="save-btn" class="btn-machine btn-square btn-transport save-btn-global"></button>
+                    <div class="ui-label">SAVE</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="load-btn" class="btn-machine btn-square btn-transport load-btn-global"></button>
+                    <div class="ui-label">LOAD</div>
+                </div>
+                <div class="ui-unit">
+                    <button id="start-btn" class="btn-machine btn-square btn-transport"></button>
+                    <div class="ui-label transport-play-labels">
+                        <span class="label-default">START</span>
+                        <span class="label-shift line-secondary">STOP</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="main-layout">
+                <div class="main-column">
+                    <!-- AI Copilot -->
+                    <section id="ai-copilot">
+                        <div class="section-tag">AI COPILOT</div>
+                        <div class="ai-input-group">
+                            <input type="text" id="ai-prompt" placeholder="Describe what you want...">
+                            <button id="ai-gen-btn" class="btn-action">AI GEN</button>
+                        </div>
+                        <div class="ai-mode-row">
+                            <div class="ai-mode-unit">
+                                <label>WALKTHROUGH:</label>
+                                <button id="ai-walkthrough-btn" class="btn-led active"></button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="ui-panel">
+                        <div class="section-tag">MAIN CONTENT</div>
+                        <div class="panel-content">
+                            <p>Your main application content goes here.</p>
+                        </div>
+                    </section>
+                </div>
+
+                <aside id="sidebar">
+                    <div class="plugin-header">PLUGINS</div>
+                    <div id="fx-container">
+                        <!-- FX modules will be injected here -->
+                    </div>
+                </aside>
+            </div>
+        </main>
+
+        <footer>
+            <span id="status-text">SYSTEM ONLINE</span>
+            <span id="step-display">STEP: 1</span>
+        </footer>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

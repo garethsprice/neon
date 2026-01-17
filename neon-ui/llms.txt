@@ -1,0 +1,211 @@
+# neon-ui
+
+Neon-styled UI component library. Vanilla JS, CSS-in-JS (auto-injected).
+
+## Import
+
+```javascript
+import { createKnob, showToast, createFxModule } from '../neon-ui/index.js';
+```
+
+## Components
+
+### Knob
+```javascript
+const knob = createKnob({
+    label: 'CUTOFF',
+    value: 50,
+    min: 0,
+    max: 100,
+    step: 1,
+    color: 'cyan',      // cyan|magenta|yellow|green|orange|purple
+    size: 'medium',     // small|medium|large
+    formatValue: v => v,
+    onChange: (val) => {},
+    onRelease: (val) => {}
+});
+container.appendChild(knob.element);
+knob.setValue(75);
+knob.getValue();
+knob.destroy();
+```
+
+### Toast
+```javascript
+showToast('Message', 'success', 4000);  // success|error|warning|info, duration ms
+configureToast({ position: 'bottom-center' });  // top-left|top-center|top-right|bottom-*
+```
+
+### LED Button
+```javascript
+const led = createLedButton({
+    active: false,
+    color: 'cyan',
+    onToggle: (active) => {}
+});
+led.setActive(true);
+```
+
+### Machine Button
+```javascript
+const btn = createMachineButton({
+    label: 'PLAY',
+    color: 'green',
+    onClick: () => {}
+});
+btn.setActive(true);
+btn.setPulsing(true);
+```
+
+### Action Button
+```javascript
+const btn = createActionButton({
+    label: 'AI GEN',
+    variant: 'primary',  // primary|secondary|danger
+    onClick: () => {}
+});
+btn.setDisabled(true);
+```
+
+### Step Button / Grid
+```javascript
+const step = createStepButton({
+    index: 0,
+    state: 'off',       // off|normal|accented
+    onToggle: (state) => {}
+});
+
+const grid = createStepGrid({
+    steps: 16,
+    onStepToggle: (index, state) => {},
+    onStepClick: (index, event) => {}
+});
+grid.setStep(0, 'accented');
+grid.setActiveStep(4);
+```
+
+### FX Module
+```javascript
+const module = createFxModule({
+    name: 'FILTER',
+    enabled: false,
+    controls: [
+        { label: 'CUTOFF', value: 2000, min: 20, max: 20000, onChange: v => {} },
+        { label: 'RESO', value: 5, min: 0, max: 30, onChange: v => {} }
+    ],
+    onToggle: (enabled) => {}
+});
+module.setEnabled(true);
+module.setControlValue('CUTOFF', 1000);
+module.setFocus(true);  // AI focus highlight
+```
+
+### FX Pager
+```javascript
+const pager = createFxPager({
+    pages: [
+        [{ name: 'FILTER', controls: [...] }, { name: 'REVERB', controls: [...] }],
+        [{ name: 'COMP', controls: [...] }]
+    ],
+    onPageChange: (pageIndex) => {}
+});
+pager.setPage(1);
+```
+
+### Panel
+```javascript
+const panel = createPanel({
+    title: 'SETTINGS',
+    collapsible: false
+});
+panel.element.appendChild(content);
+```
+
+### Input / Textarea
+```javascript
+const input = createInput({
+    placeholder: 'Enter name...',
+    value: '',
+    color: 'green',
+    onChange: (val) => {}
+});
+
+const textarea = createTextarea({
+    placeholder: 'Description...',
+    rows: 3,
+    onChange: (val) => {}
+});
+```
+
+### Sidebar
+```javascript
+const sidebar = createSidebar({
+    title: 'ACTIVITY',
+    width: 320,
+    onClose: () => {}
+});
+sidebar.open();
+sidebar.close();
+sidebar.toggle();
+```
+
+### Feed Item / Feed
+```javascript
+const item = createFeedItem({
+    title: 'Track Name',
+    thumbnail: 'url',
+    stats: { plays: 100, likes: 50 },
+    user: { username: 'user', avatar: 'url' },
+    onClick: () => {},
+    onLike: () => {},
+    onDelete: () => {}
+});
+
+const feed = createFeed({
+    items: [...],
+    loading: false,
+    emptyMessage: 'No tracks'
+});
+feed.setItems(newItems);
+feed.setLoading(true);
+```
+
+### Spectrum Analyzer
+```javascript
+const analyzer = createSpectrumAnalyzer({
+    audioContext: ctx,
+    sourceNode: source,
+    width: 200,
+    height: 60,
+    barColor: '#00ffff'
+});
+container.appendChild(analyzer.element);
+analyzer.start();
+analyzer.stop();
+```
+
+### Keyboard
+```javascript
+const keyboard = createKeyboard({
+    startOctave: 3,
+    octaves: 2,
+    onNoteOn: (note, velocity) => {},
+    onNoteOff: (note) => {}
+});
+keyboard.setActiveNote(60);
+```
+
+## Return Pattern
+
+All create* functions return:
+```javascript
+{
+    element,      // DOM element to append
+    destroy(),    // Cleanup function
+    // + component-specific methods
+}
+```
+
+## Colors
+
+All components support: cyan, magenta, yellow, green, orange, purple

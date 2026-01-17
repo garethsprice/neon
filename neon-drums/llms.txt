@@ -1,0 +1,180 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Neon Drums is an AI-powered drum machine web application inspired by the Roland TR-909. It's a fully client-side, vanilla JavaScript application with no build system or npm dependencies.
+
+## Running Locally
+
+```bash
+# Any static file server works
+python3 -m http.server 8000
+# or
+npx serve
+```
+
+No build step required - files are served directly.
+
+## Architecture
+
+### Module Structure
+
+```
+main.js          - Entry point, event handlers, playback scheduler
+audio-engine.js  - Web Audio API wrapper, effects chains, sample playback
+sequencer.js     - Pattern/track state management, 16 patterns (A-P) per bank
+ai-handler.js    - Claude API integration for rhythm generation
+cloud.js         - WebsimSocket sync, persistence, community feed
+ui-utils.js      - Re-exports from neon-ui (backwards compatibility)
+visualizer.js    - WebGL mesh gradient background
+walkthrough.js   - AI generation animation sequence
+```
+
+### External Libraries
+
+UI components, audio plugins, and cloud collaboration are in separate reusable libraries:
+
+- **`../neon-ui/`** - UI component library (knobs, buttons, panels, toasts, etc.)
+- **`../neon-fx/`** - Audio plugin library (filters, saturation, compressor, reverb, etc.)
+- **`../neon-cloud/`** - Collaboration library (tracks, commits, likes, real-time sync)
+
+Import UI components: `import { createKnob, showToast, ... } from '../neon-ui/index.js';`
+Import audio plugins: `import { Filter, Reverb, PluginChain } from '../neon-fx/index.js';`
+Import cloud store: `import { CloudStore, diffState } from '../neon-cloud/index.js';`
+
+### Key Objects
+
+- `audioEngine` - Web Audio Context, per-instrument effect chains, sprite-based sample playback
+- `sequencer` - Pattern data, track mode (96-measure arrangements), playback state
+- `state` - UI state (current pattern, instrument selection, etc.)
+
+### Audio System
+
+- Single OGG sprite file (`tr909-sprite.ogg`) contains all drum samples
+- Parametric playback interpolates between samples based on tune/attack/decay values
+- Per-instrument effects: saturation, compression, sidechain, reverb, LP/HP filters
+- Manifest in `manifest-sprite-compressed.json` defines sample offsets and parameters
+
+### AI Integration
+
+- Genre-specific system prompts in `ai-prompts.json` (house, techno, trance, acid, UK garage, drum & bass, hip-hop)
+- AI returns JSON with pattern data, BPM, effects parameters
+- Three generation modes: PATTERN (single loop), CHAIN (2-4 patterns), TRACK (full arrangement)
+
+### Sequencer Data Model
+
+- 16 or 32 steps per pattern
+- Step values: 0 (off), 1 (normal), 2 (accented)
+- Optional flams (grace notes) per step
+- Scale modifier: 1x, 3/4, 1.5x, 2x
+- Shuffle: 0-100 (swing amount)
+- 11 instruments: kick, snare, clap, rim, tom-lo, tom-mid, tom-hi, hihat-closed, hihat-open, crash, ride
+
+## Common Modifications
+
+- **Add drum instrument**: Update `manifest-sprite-compressed.json` and `sequencer.INSTS`
+- **Add effect type**: Modify `AudioEngine.setupChain()` and `trackParams` initialization
+- **Tweak AI generation**: Edit system prompts in `ai-prompts.json`
+- **UI styling**: All in `style.css` using CSS custom properties (`--nc`, `--nm`, `--nl`, etc. for neon colors)
+
+## Important Notes
+
+- Web Audio API requires user interaction before starting (browser security)
+- No automated tests - manual browser testing required
+
+## Local Development (WebSim Stub)
+
+The app can run locally without the WebSim platform using `websim.js`:
+
+- **WebsimSocket**: Mock real-time collections stored in localStorage
+- **websim.getCurrentUser()**: Returns a generated local username
+- **websim.chat.completions.create()**: Returns mock AI responses (basic pattern generation works)
+- **websim.imageGen()**: Returns placeholder gradient SVG images
+
+Data persists in localStorage under `neon_drums_local_data`. Clear it to reset.
+
+## Audio Plugins (neon-fx)
+
+The audio plugins have been moved to the `../neon-fx/` library. See `../neon-fx/index.html` for an interactive demo.
+
+### Usage Example
+
+```javascript
+import { Filter, Compressor, Reverb, PluginChain } from '../neon-fx/index.js';
+
+const ctx = new AudioContext();
+
+// Create plugins
+const filter = new Filter(ctx, { cutoff: 2000, resonance: 30 });
+const compressor = new Compressor(ctx, { threshold: -18, ratio: 4 });
+const reverb = new Reverb(ctx, { mix: 25, decay: 2 });
+
+// Chain them
+const chain = new PluginChain(ctx);
+chain.add(filter).add(compressor).add(reverb);
+
+// Connect to audio graph
+source.connect(chain.input);
+chain.connect(ctx.destination);
+
+// Real-time parameter changes
+filter.setParam('cutoff', 500, 0.1);  // Ramp over 100ms
+compressor.bypassed = true;            // Bypass compressor
+```
+
+### Available Plugins
+
+- **Filters**: Filter, LowpassFilter, HighpassFilter, BandpassFilter
+- **Saturation**: Saturation (soft, tube, tape, hard modes)
+- **Dynamics**: Compressor, Limiter, Sidechain, RhythmicSidechain
+- **Time**: Reverb, PlateReverb, HallReverb, RoomReverb
+- **Utilities**: PluginChain, ParallelChain
+
+## Cloud Collaboration (neon-cloud)
+
+The collaboration system has been moved to the `../neon-cloud/` library. See `../neon-cloud/index.html` for full documentation.
+
+### Usage Example
+
+```javascript
+import { CloudStore } from '../neon-cloud/index.js';
+
+const store = new CloudStore({
+    room: new WebsimSocket(),
+    getCurrentUser: () => websim.getCurrentUser(),
+    diffConfig: {
+        scalarFields: ['bpm', 'trackName'],
+        objectFields: ['patterns', 'trackParams'],
+        arrayFields: ['trackMeasures']
+    }
+});
+
+// Listen for events
+store.on('loaded', ({ data }) => {
+    sequencer.deserialize(data);
+    renderUI();
+});
+
+// Commit changes
+await store.commit(sequencer.serialize(), {
+    name: 'My Track',
+    stats: { bpm: 120 }
+});
+
+// Load a track
+await store.loadTrack(trackId);
+
+// Get feed data for rendering
+const feed = await store.getFeed({ filter: 'all', page: 1 });
+```
+
+### Features
+
+- Git-like versioning with commits and history
+- Track management (create, load, delete)
+- Social features (likes, plays, remixes)
+- Real-time sync via WebsimSocket
+- Configurable state diffing
+- Framework-agnostic (no UI dependencies)

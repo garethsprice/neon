@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon UI Kit - Component Preview</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #0a0014 0%, #1a0033 50%, #0d001a 100%);
+            min-height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #fff;
+        }
+        h1 {
+            font-size: 2.5em;
+            font-weight: 900;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #00ffff 0%, #ff00ff 50%, #bf5fff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin: 0 0 40px 0;
+            text-shadow: 0 0 40px rgba(0, 255, 255, 0.3);
+        }
+        h2 {
+            font-size: 1em;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: #bf5fff;
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(191, 95, 255, 0.3);
+        }
+        h2:first-of-type {
+            margin-top: 0;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .demo-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .demo-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .demo-label {
+            font-size: 0.65em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(191, 95, 255, 0.6);
+        }
+        .knobs-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .steps-container {
+            max-width: 800px;
+        }
+        .panels-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .code-hint {
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.7em;
+            color: rgba(0, 255, 255, 0.6);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 12px;
+        }
+        .input-demos {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Neon UI Kit</h1>
+
+    <div class="section">
+        <h2>Knob <span class="code-hint">createKnob()</span></h2>
+        <div class="knobs-row" id="knobs-demo"></div>
+    </div>
+
+    <div class="section">
+        <h2>LED Button <span class="code-hint">createLedButton()</span></h2>
+        <div class="demo-row" id="led-buttons-demo"></div>
+    </div>
+
+    <div class="section">
+        <h2>Machine Button <span class="code-hint">createMachineButton()</span></h2>
+        <div class="demo-row" id="machine-buttons-demo"></div>
+    </div>
+
+    <div class="section">
+        <h2>Action Button <span class="code-hint">createActionButton()</span></h2>
+        <div class="demo-row" id="action-buttons-demo"></div>
+    </div>
+
+    <div class="section">
+        <h2>Step Button <span class="code-hint">createStepButton() / createStepGrid()</span></h2>
+        <div class="steps-container" id="step-buttons-demo"></div>
+    </div>
+
+    <div class="section">
+        <h2>Panel <span class="code-hint">createPanel()</span></h2>
+        <div class="panels-grid" id="panels-demo"></div>
+    </div>
+
+    <div class="section">
+        <h2>Input <span class="code-hint">createInput() / createTextarea()</span></h2>
+        <div class="input-demos" id="inputs-demo"></div>
+    </div>
+
+    <div class="section">
+        <h2>Toast <span class="code-hint">showToast()</span></h2>
+        <div class="demo-row" id="toast-demo"></div>
+    </div>
+
+    <script type="module">
+        import {
+            createKnob,
+            createLedButton,
+            createMachineButton,
+            createActionButton,
+            createStepButton,
+            createStepGrid,
+            createPanel,
+            createInput,
+            createTextarea,
+            showToast
+        } from './index.js';
+
+        // === Knobs ===
+        const knobsDemo = document.getElementById('knobs-demo');
+
+        const knobColors = ['cyan', 'magenta', 'yellow', 'green', 'orange', 'purple'];
+        knobColors.forEach((color, i) => {
+            const knob = createKnob({
+                label: color.toUpperCase(),
+                value: 20 + i * 15,
+                min: 0,
+                max: 100,
+                color: color,
+                onChange: (val) => console.log(`${color} knob:`, val)
+            });
+            knobsDemo.appendChild(knob.element);
+        });
+
+        // Different sizes
+        ['small', 'medium', 'large'].forEach(size => {
+            const knob = createKnob({
+                label: size,
+                value: 50,
+                size: size,
+                color: 'cyan'
+            });
+            knobsDemo.appendChild(knob.element);
+        });
+
+        // === LED Buttons ===
+        const ledDemo = document.getElementById('led-buttons-demo');
+        const ledColors = ['cyan', 'magenta', 'green', 'yellow', 'orange', 'purple', 'red'];
+
+        ledColors.forEach((color, i) => {
+            const led = createLedButton({
+                label: color,
+                color: color,
+                active: i < 3,
+                onClick: (active) => console.log(`${color} LED:`, active)
+            });
+            ledDemo.appendChild(led.element);
+        });
+
+        // === Machine Buttons ===
+        const machineDemo = document.getElementById('machine-buttons-demo');
+
+        ['KICK', 'SNARE', 'CLAP', 'HI-HAT'].forEach((name, i) => {
+            const btn = createMachineButton({
+                label: name,
+                active: i === 0,
+                onClick: () => console.log(`${name} clicked`)
+            });
+            machineDemo.appendChild(btn.element);
+        });
+
+        // Pattern buttons
+        ['A', 'B', 'C', 'D'].forEach((letter, i) => {
+            const btn = createMachineButton({
+                label: letter,
+                variant: 'pattern',
+                active: i === 0,
+                onClick: () => console.log(`Pattern ${letter}`)
+            });
+            machineDemo.appendChild(btn.element);
+        });
+
+        // === Action Buttons ===
+        const actionDemo = document.getElementById('action-buttons-demo');
+
+        const defaultBtn = createActionButton({
+            text: 'Default',
+            onClick: () => console.log('Default clicked')
+        });
+        actionDemo.appendChild(defaultBtn.element);
+
+        const primaryBtn = createActionButton({
+            text: 'Primary',
+            variant: 'primary',
+            onClick: () => console.log('Primary clicked')
+        });
+        actionDemo.appendChild(primaryBtn.element);
+
+        const attractBtn = createActionButton({
+            text: 'Attract Mode',
+            variant: 'primary',
+            onClick: () => console.log('Attract clicked')
+        });
+        attractBtn.setAttract(true);
+        actionDemo.appendChild(attractBtn.element);
+
+        ['cyan', 'magenta', 'green', 'purple'].forEach(color => {
+            const btn = createActionButton({
+                text: color,
+                color: color
+            });
+            actionDemo.appendChild(btn.element);
+        });
+
+        const loadingBtn = createActionButton({
+            text: 'Loading...',
+            variant: 'primary'
+        });
+        loadingBtn.setLoading(true);
+        actionDemo.appendChild(loadingBtn.element);
+
+        // === Step Buttons ===
+        const stepsDemo = document.getElementById('step-buttons-demo');
+
+        // Create a step grid
+        const grid = createStepGrid({
+            steps: 16,
+            values: [2, 0, 1, 0, 2, 0, 1, 0, 2, 0, 1, 0, 2, 0, 1, 1],
+            onStepClick: (index, value) => {
+                // Cycle through states: 0 -> 1 -> 2 -> 0
+                const newValue = (value + 1) % 3;
+                grid.steps[index].setValue(newValue);
+            }
+        });
+        stepsDemo.appendChild(grid.element);
+
+        // Animate the playhead
+        let currentStep = 0;
+        setInterval(() => {
+            grid.setActiveStep(currentStep);
+            if (grid.steps[currentStep].getValue() > 0) {
+                grid.triggerStep(currentStep, 100);
+            }
+            currentStep = (currentStep + 1) % 16;
+        }, 200);
+
+        // === Panels ===
+        const panelsDemo = document.getElementById('panels-demo');
+
+        const defaultPanel = createPanel({
+            tag: 'Default Panel',
+            content: '<p style="margin:0;color:rgba(255,255,255,0.7);font-size:0.8em;">Default styling with subtle purple tint.</p>'
+        });
+        panelsDemo.appendChild(defaultPanel.element);
+
+        ['purple', 'cyan', 'green', 'orange', 'magenta'].forEach(color => {
+            const panel = createPanel({
+                tag: `${color} panel`,
+                color: color,
+                content: `<p style="margin:0;color:rgba(255,255,255,0.7);font-size:0.8em;">Panel with ${color} accent color.</p>`
+            });
+            panelsDemo.appendChild(panel.element);
+        });
+
+        // === Inputs ===
+        const inputsDemo = document.getElementById('inputs-demo');
+
+        const textInput = createInput({
+            label: 'Track Name',
+            placeholder: 'Enter name...',
+            onChange: (val) => console.log('Text:', val)
+        });
+        inputsDemo.appendChild(textInput.element);
+
+        const numberInput = createInput({
+            label: 'BPM',
+            type: 'number',
+            value: 120,
+            min: 60,
+            max: 200,
+            onChange: (val) => console.log('Number:', val)
+        });
+        inputsDemo.appendChild(numberInput.element);
+
+        const textarea = createTextarea({
+            label: 'Notes',
+            placeholder: 'Add notes here...',
+            rows: 3
+        });
+        inputsDemo.appendChild(textarea.element);
+
+        // === Toast ===
+        const toastDemo = document.getElementById('toast-demo');
+
+        ['success', 'error', 'warning', 'info'].forEach(type => {
+            const btn = createActionButton({
+                text: type.toUpperCase(),
+                color: type === 'success' ? 'green' : type === 'error' ? 'magenta' : type === 'warning' ? undefined : 'cyan',
+                onClick: () => showToast(`This is a ${type} message`, type)
+            });
+            toastDemo.appendChild(btn.element);
+        });
+    </script>
+</body>
+</html>
