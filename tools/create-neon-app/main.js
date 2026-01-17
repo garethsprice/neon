@@ -2,8 +2,8 @@
    NEON APP STARTER KIT - JavaScript
    ========================================================================== */
 
-import { createKnob, createFxModule } from '../neon-ui/index.js';
-import { Filter } from '../neon-fx/index.js';
+import { createKnob, createFxModule } from '../../packages/neon-ui/index.js';
+import { Filter } from '../../packages/neon-fx/index.js';
 
 // --------------------------------------------------------------------------
 // DOM ELEMENTS

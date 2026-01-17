@@ -4,7 +4,7 @@ import {
     Compressor,
     Saturation,
     Delay
-} from '../neon-fx/index.js';
+} from '../../packages/neon-fx/index.js';
 
 export class AudioEngine {
     constructor() {

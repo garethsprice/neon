@@ -4,8 +4,8 @@
  * Uses neon-cloud library for saving and loading noise presets.
  */
 
-import { showToast } from '../neon-ui/index.js';
-import { CloudStore, timeAgo } from '../neon-cloud/index.js';
+import { showToast } from '../../packages/neon-ui/index.js';
+import { CloudStore, timeAgo } from '../../packages/neon-cloud/index.js';
 
 const el = id => document.getElementById(id);
 

@@ -4,7 +4,7 @@
    ========================================================================== */
 
 import { AudioEngine } from './audio-engine.js';
-import { createKnob, showToast, createKeyboard, createPianoRoll, createPatternBank, createTrackPanel } from '../neon-ui/index.js';
+import { createKnob, showToast, createKeyboard, createPianoRoll, createPatternBank, createTrackPanel } from '../../packages/neon-ui/index.js';
 import { Midi } from "@tonejs/midi";
 import { runWalkthrough } from './walkthrough.js';
 import { setupCloud } from './cloud.js';

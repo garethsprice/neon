@@ -21,9 +21,9 @@ cloud.js        - Preset save/load via neon-cloud
 ## External Libraries
 
 ```javascript
-import { createKnob, createLedButton, createSpectrumAnalyzer, showToast } from '../neon-ui/index.js';
-import { AdaptiveNoise } from '../neon-fx/index.js';
-import { CloudStore, timeAgo } from '../neon-cloud/index.js';
+import { createKnob, createLedButton, createSpectrumAnalyzer, showToast } from '../../packages/neon-ui/index.js';
+import { AdaptiveNoise } from '../../packages/neon-fx/index.js';
+import { CloudStore, timeAgo } from '../../packages/neon-cloud/index.js';
 ```
 
 ## Layout

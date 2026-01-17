@@ -5,7 +5,8 @@ Neon-styled UI component library. Vanilla JS, CSS-in-JS (auto-injected).
 ## Import
 
 ```javascript
-import { createKnob, showToast, createFxModule } from '../neon-ui/index.js';
+// From apps/ or tools/:
+import { createKnob, showToast, createFxModule } from '../../packages/neon-ui/index.js';
 ```
 
 ## Components

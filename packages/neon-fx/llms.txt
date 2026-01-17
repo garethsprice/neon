@@ -5,7 +5,8 @@ Chainable Web Audio API plugins with standardized interface.
 ## Import
 
 ```javascript
-import { Filter, Compressor, Reverb, PluginChain } from '../neon-fx/index.js';
+// From apps/ or tools/:
+import { Filter, Compressor, Reverb, PluginChain } from '../../packages/neon-fx/index.js';
 ```
 
 ## Quick Start
@@ -145,7 +146,7 @@ parallel.add(delay, 0.3);
 ## Dynamic Creation
 
 ```javascript
-import { createPlugin, getAvailablePlugins } from '../neon-fx/index.js';
+import { createPlugin, getAvailablePlugins } from '../../packages/neon-fx/index.js';
 
 const ids = getAvailablePlugins();  // ['filter', 'compressor', ...]
 const plugin = await createPlugin('filter', ctx, { cutoff: 1000 });

@@ -11,8 +11,8 @@ import {
     createMachineButton,
     createSpectrumAnalyzer,
     showToast
-} from '../neon-ui/index.js';
-import { AdaptiveNoise } from '../neon-fx/index.js';
+} from '../../packages/neon-ui/index.js';
+import { AdaptiveNoise } from '../../packages/neon-fx/index.js';
 import { setupCloud } from './cloud.js';
 
 // --------------------------------------------------------------------------

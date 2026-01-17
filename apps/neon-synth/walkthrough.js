@@ -3,7 +3,7 @@
    Animates the application of AI-generated changes step-by-step
    ========================================================================== */
 
-import { showToast } from '../neon-ui/index.js';
+import { showToast } from '../../packages/neon-ui/index.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const el = id => document.getElementById(id);

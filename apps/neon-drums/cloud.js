@@ -1,19 +1,19 @@
 /**
- * Neon Synth 2 - Cloud Integration
+ * Neon Drums - Cloud Integration
  *
  * Uses neon-cloud library for collaboration, with app-specific UI rendering.
  */
 
-import { showToast } from '../neon-ui/index.js';
-import { CloudStore, timeAgo } from '../neon-cloud/index.js';
+import { showToast } from './ui-utils.js';
+import { CloudStore, timeAgo } from '../../packages/neon-cloud/index.js';
 
 const el = id => document.getElementById(id);
 const queryAll = s => document.querySelectorAll(s);
 
 /**
- * Generate AI-powered commit messages for synth changes
+ * Generate AI-powered commit messages for drum machine changes
  */
-async function generateSynthCommitMessage(changes, prevData, currData, options = {}) {
+async function generateDrumCommitMessage(changes, prevData, currData, options = {}) {
     if (options.isRemix && options.remixSource) {
         return `Remixed from @${options.remixSource.owner}/${options.remixSource.name}`;
     }
@@ -26,34 +26,36 @@ async function generateSynthCommitMessage(changes, prevData, currData, options =
         return "Minor adjustments";
     }
 
+    // Build detailed summary for AI
     const parts = changes.summary;
 
     try {
         const response = await websim.chat.completions.create({
             messages: [{
                 role: "user",
-                content: `Generate a brief, meaningful commit message (max 50 chars) for a synth track. These changes were made:\n\n${parts.join('\n')}\n\nWrite a concise message that captures the essence of these changes. Reply with ONLY the message, no quotes. Examples: "New acid bassline in track 1", "Added dreamy pad progression", "Tweaked filter resonance"`
+                content: `Generate a brief, meaningful commit message (max 50 chars) for a drum machine track. These changes were made:\n\n${parts.join('\n')}\n\nWrite a concise message that captures the essence of these changes. Reply with ONLY the message, no quotes. Examples: "Added punchy kick pattern to B", "Cranked up the tempo", "New hi-hat groove in A and C"`
             }]
         });
         return response.content.trim().replace(/^["']|["']$/g, '').substring(0, 60);
     } catch (e) {
+        // Fallback to first summary item
         return parts[0]?.substring(0, 60) || "Updated track";
     }
 }
 
 export function setupCloud(room, ctx) {
-    const { app, engine, pianoRoll, elements } = ctx;
+    const { sequencer, elements, renderAll, syncGlobalKnobs, updateTrackUI, state } = ctx;
 
-    // Create cloud store with synth-specific configuration
+    // Create cloud store with drum-specific configuration
     const store = new CloudStore({
         room,
         getCurrentUser: () => websim.getCurrentUser(),
-        generateCommitMessage: generateSynthCommitMessage,
+        generateCommitMessage: generateDrumCommitMessage,
         diffConfig: {
-            scalarFields: ['songTitle', 'bpm', 'rootKey', 'rootOctave', 'steps', 'numKeys', 'trackName', 'trackDescription', 'thumbnailUrl', 'currentPatternId', 'trackSkill'],
-            objectFields: ['trackParams', 'globalParams', 'patterns'],
-            arrayFields: ['tracks', 'trackNames'],
-            ignoreFields: ['_id', 'id', 'createdAt', 'updatedAt', 'selectedTrackIdx']
+            scalarFields: ['bpm', 'trackName', 'trackDescription', 'thumbnailUrl', 'masterVolume'],
+            objectFields: ['patterns', 'trackParams', 'flams'],
+            arrayFields: ['trackMeasures', 'patternChain'],
+            ignoreFields: ['_id', 'id', 'createdAt', 'updatedAt']
         }
     });
 
@@ -62,156 +64,42 @@ export function setupCloud(room, ctx) {
     let currentPage = 1;
     const pageSize = 10;
 
-    // Get current synth state for saving
-    function getCurrentState() {
-        // Save current pattern before getting state
-        if (app.saveCurrentToPattern) {
-            app.saveCurrentToPattern(app.currentPatternId);
-        }
-
-        return {
-            songTitle: app.trackName?.trim() || 'Untitled',
-            trackName: app.trackName || '',
-            trackDescription: app.trackDescription || '',
-            thumbnailUrl: app.thumbnailUrl || null,
-            trackSkill: app.trackSkill || null,
-            trackNames: pianoRoll.trackNames,
-            trackParams: engine.trackParams,
-            globalParams: {
-                ...engine.globalParams,
-                masterVolume: Math.round(engine.globalParams.masterVolume * 100)
-            },
-            steps: pianoRoll.steps,
-            numKeys: pianoRoll.numKeys,
-            rootKey: parseInt(elements.rootKeySelect.value),
-            rootOctave: parseInt(elements.octaveSelect.value),
-            tracks: pianoRoll.getTracksAsTracker(),
-            currentPatternId: app.currentPatternId || 'A',
-            patterns: app.patterns ? JSON.parse(JSON.stringify(app.patterns)) : {}
-        };
-    }
-
-    // Apply state to synth
-    function applyState(state) {
-        if (state.songTitle && !state.trackName) {
-            // Use songTitle as trackName for backwards compatibility
-            app.trackName = state.songTitle;
-            if (app.trackPanel) app.trackPanel.setTitle(state.songTitle);
-        }
-
-        // Apply track metadata
-        if (state.trackName !== undefined) {
-            app.trackName = state.trackName;
-            if (app.trackPanel) app.trackPanel.setTitle(state.trackName);
-        }
-        if (state.trackDescription !== undefined) {
-            app.trackDescription = state.trackDescription;
-            if (app.trackPanel) app.trackPanel.setDescription(state.trackDescription);
-        }
-        if (state.thumbnailUrl !== undefined) {
-            app.thumbnailUrl = state.thumbnailUrl;
-            if (app.trackPanel) app.trackPanel.setThumbnail(state.thumbnailUrl);
-        }
-        if (state.trackSkill !== undefined) {
-            app.trackSkill = state.trackSkill;
-        }
-
-        // Apply patterns
-        if (state.patterns) {
-            app.patterns = JSON.parse(JSON.stringify(state.patterns));
-            if (app.updatePatternIndicators) app.updatePatternIndicators();
-        }
-        if (state.currentPatternId) {
-            app.currentPatternId = state.currentPatternId;
-            if (app.patternBank) app.patternBank.setActivePattern(state.currentPatternId);
-        }
-
-        if (state.steps) {
-            pianoRoll.setSteps(state.steps);
-        }
-
-        if (state.numKeys !== undefined && [12, 25, 49, 61, 88].includes(state.numKeys)) {
-            elements.keyboardSizeSelect.value = state.numKeys;
-            app.setKeyboardSize(state.numKeys);
-        }
-
-        if (state.rootKey !== undefined) {
-            elements.rootKeySelect.value = state.rootKey;
-        }
-        if (state.rootOctave !== undefined) {
-            elements.octaveSelect.value = state.rootOctave;
-        }
-        app.updateKeyboardRange();
-
-        if (state.globalParams) {
-            if (state.globalParams.bpm !== undefined) {
-                elements.bpmInput.value = state.globalParams.bpm;
-                engine.updateParam('bpm', state.globalParams.bpm);
-                pianoRoll.setBPM(state.globalParams.bpm);
-            }
-            if (state.globalParams.masterVolume !== undefined) {
-                app.knobs.masterVolume?.setValue(state.globalParams.masterVolume);
-                engine.updateParam('masterVolume', state.globalParams.masterVolume / 100);
-            }
-        }
-
-        if (state.trackParams) {
-            if (Array.isArray(state.trackParams)) {
-                state.trackParams.forEach((params, tIdx) => {
-                    for (const [key, val] of Object.entries(params)) {
-                        engine.updateParam(key, val, tIdx);
-                    }
-                });
-            } else {
-                for (const [idx, params] of Object.entries(state.trackParams)) {
-                    const tIdx = parseInt(idx);
-                    for (const [key, val] of Object.entries(params)) {
-                        engine.updateParam(key, val, tIdx);
-                    }
-                }
-            }
-            app.refreshUIForTrack(pianoRoll.selectedTrackIdx);
-        }
-
-        if (state.trackNames) {
-            pianoRoll.setTrackNames(state.trackNames);
-        }
-
-        if (state.tracks) {
-            pianoRoll.setTracksFromTracker(state.tracks);
-        }
-    }
-
-    // Update save button state
+    // Update save button state based on changes
     function updateSaveButtonState() {
-        if (!elements.saveBtn) return;
+        if (!elements.globalSaveBtn) return;
 
-        const currentData = getCurrentState();
+        const currentData = sequencer.serialize();
         const { hasChanges: canSave } = store.checkForChanges(currentData);
 
-        elements.saveBtn.disabled = !canSave && store.lastCommitData !== null;
-        elements.saveBtn.classList.toggle('no-changes', !canSave && store.lastCommitData !== null);
+        elements.globalSaveBtn.disabled = !canSave && store.lastCommitData !== null;
+        elements.globalSaveBtn.classList.toggle('no-changes', !canSave && store.lastCommitData !== null);
+
+        if (!canSave && store.lastCommitData) {
+            elements.globalSaveBtn.innerText = "SAVED";
+        } else {
+            elements.globalSaveBtn.innerText = "SAVE";
+        }
     }
 
     // Perform commit
     async function performCommit() {
-        let title = app.trackName?.trim() || '';
-
-        if (!title) {
+        // Generate track name if needed
+        if (!sequencer.trackName) {
             try {
                 const suggested = await websim.chat.completions.create({
-                    messages: [{ role: "system", content: "Suggest a 2-word cool neon/synth name for a track. Respond with only the name." }]
+                    messages: [{ role: "system", content: "Suggest a 2-word cool name for a techno track. Respond with only the name." }]
                 });
-                title = suggested.content.trim();
-                app.trackName = title;
-                if (app.trackPanel) app.trackPanel.setTitle(title);
+                sequencer.trackName = suggested.content.trim();
+                elements.trackNameInput.value = sequencer.trackName;
             } catch (e) {
-                title = "Untitled";
+                sequencer.trackName = "Untitled";
             }
         }
 
-        const currentData = getCurrentState();
+        const currentData = sequencer.serialize();
+        const numMeasures = sequencer.trackMeasures.filter(m => m !== null).length;
 
+        // Check for changes
         const { hasChanges: canSave } = store.checkForChanges(currentData);
         if (store.lastCommitData && !canSave) {
             showToast("NO CHANGES TO SAVE", "info");
@@ -219,11 +107,16 @@ export function setupCloud(room, ctx) {
         }
 
         try {
-            elements.saveBtn.disabled = true;
+            elements.globalSaveBtn.disabled = true;
+            elements.globalSaveBtn.innerText = "...";
 
             const result = await store.commit(currentData, {
-                name: title,
-                stats: { bpm: engine.globalParams.bpm, steps: pianoRoll.steps }
+                name: sequencer.trackName,
+                description: sequencer.trackDescription || '',
+                thumbnailUrl: sequencer.thumbnailUrl || null,
+                stats: { bpm: sequencer.bpm, measures: numMeasures }
+            }, {
+                visibility: state.visibility || 'public'
             });
 
             if (result.error) {
@@ -236,7 +129,8 @@ export function setupCloud(room, ctx) {
             console.error("Commit error:", e);
             showToast("COMMIT FAILED", "error");
         } finally {
-            elements.saveBtn.disabled = false;
+            elements.globalSaveBtn.disabled = false;
+            elements.globalSaveBtn.innerText = "SAVE";
         }
     }
 
@@ -271,12 +165,16 @@ export function setupCloud(room, ctx) {
 
     // Load a commit
     async function loadCommit(commitId, autoPlay = false) {
-        if (pianoRoll.isPlaying) pianoRoll.toggle();
+        // Stop current playback
+        if (sequencer.isPlaying) elements.playBtn.click();
 
         const result = await store.loadCommit(commitId);
         if (result.error) return false;
 
-        applyState(result.data);
+        sequencer.deserialize(result.data);
+        renderAll();
+        syncGlobalKnobs();
+        updateTrackUI();
         updateHistoryIndicator();
 
         elements.communitySidebar.classList.remove('open');
@@ -287,7 +185,7 @@ export function setupCloud(room, ctx) {
 
         if (autoPlay) {
             setTimeout(() => {
-                if (!pianoRoll.isPlaying) pianoRoll.toggle();
+                if (!sequencer.isPlaying) elements.playBtn.click();
             }, 150);
         }
 
@@ -299,9 +197,13 @@ export function setupCloud(room, ctx) {
         const result = await store.loadTrack(trackId);
         if (result.error) return false;
 
-        if (pianoRoll.isPlaying) pianoRoll.toggle();
+        // Stop current playback
+        if (sequencer.isPlaying) elements.playBtn.click();
 
-        applyState(result.data);
+        sequencer.deserialize(result.data);
+        renderAll();
+        syncGlobalKnobs();
+        updateTrackUI();
         updateHistoryIndicator();
 
         elements.communitySidebar.classList.remove('open');
@@ -311,7 +213,7 @@ export function setupCloud(room, ctx) {
 
         if (autoPlay) {
             setTimeout(() => {
-                if (!pianoRoll.isPlaying) pianoRoll.toggle();
+                if (!sequencer.isPlaying) elements.playBtn.click();
             }, 150);
         }
 
@@ -394,7 +296,6 @@ export function setupCloud(room, ctx) {
                         ${remixInfo}
                         <div class="track-meta-stats">
                             <span class="meta-stat" data-tooltip="TEMPO"><i data-lucide="gauge"></i> ${track.stats?.bpm || 120}</span>
-                            <span class="meta-stat" data-tooltip="STEPS"><i data-lucide="rows-3"></i> ${track.stats?.steps || 16}</span>
                             <span class="meta-stat" data-tooltip="COMMITS"><i data-lucide="git-commit"></i> ${track.stats?.commits || 0}</span>
                         </div>
                     </div>
@@ -455,6 +356,7 @@ export function setupCloud(room, ctx) {
 
         if (window.lucide) window.lucide.createIcons();
 
+        // Bind event handlers
         bindFeedEventHandlers();
     }
 
@@ -515,9 +417,9 @@ export function setupCloud(room, ctx) {
     }
 
     // Setup UI event handlers
-    elements.saveBtn.onclick = performCommit;
+    elements.globalSaveBtn.onclick = performCommit;
 
-    elements.loadBtn.onclick = () => {
+    elements.globalLoadBtn.onclick = () => {
         elements.feedFilterMine.click();
         if (!elements.communitySidebar.classList.contains('open')) {
             elements.communitySidebar.classList.add('open');
@@ -576,8 +478,6 @@ export function setupCloud(room, ctx) {
         loadTrack,
         loadCommit,
         updateSaveButtonState,
-        getCurrentState,
-        applyState,
         get currentTrack() { return store.currentTrack; },
         get currentCommitId() { return store.currentCommitId; },
         get isViewingHistory() { return store.isViewingHistory; }

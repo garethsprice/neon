@@ -20,8 +20,8 @@ main.js     - ES module, imports neon-ui + neon-fx
 ## External Libraries
 
 ```javascript
-import { createKnob, createFxModule, showToast } from '../neon-ui/index.js';
-import { Filter, Reverb, Compressor } from '../neon-fx/index.js';
+import { createKnob, createFxModule, showToast } from '../../packages/neon-ui/index.js';
+import { Filter, Reverb, Compressor } from '../../packages/neon-fx/index.js';
 ```
 
 ## Color Variables

@@ -36,13 +36,13 @@ walkthrough.js   - AI generation animation sequence
 
 UI components, audio plugins, and cloud collaboration are in separate reusable libraries:
 
-- **`../neon-ui/`** - UI component library (knobs, buttons, panels, toasts, etc.)
-- **`../neon-fx/`** - Audio plugin library (filters, saturation, compressor, reverb, etc.)
-- **`../neon-cloud/`** - Collaboration library (tracks, commits, likes, real-time sync)
+- **`../../packages/neon-ui/`** - UI component library (knobs, buttons, panels, toasts, etc.)
+- **`../../packages/neon-fx/`** - Audio plugin library (filters, saturation, compressor, reverb, etc.)
+- **`../../packages/neon-cloud/`** - Collaboration library (tracks, commits, likes, real-time sync)
 
-Import UI components: `import { createKnob, showToast, ... } from '../neon-ui/index.js';`
-Import audio plugins: `import { Filter, Reverb, PluginChain } from '../neon-fx/index.js';`
-Import cloud store: `import { CloudStore, diffState } from '../neon-cloud/index.js';`
+Import UI components: `import { createKnob, showToast, ... } from '../../packages/neon-ui/index.js';`
+Import audio plugins: `import { Filter, Reverb, PluginChain } from '../../packages/neon-fx/index.js';`
+Import cloud store: `import { CloudStore, diffState } from '../../packages/neon-cloud/index.js';`
 
 ### Key Objects
 
@@ -97,12 +97,12 @@ Data persists in localStorage under `neon_drums_local_data`. Clear it to reset.
 
 ## Audio Plugins (neon-fx)
 
-The audio plugins have been moved to the `../neon-fx/` library. See `../neon-fx/index.html` for an interactive demo.
+The audio plugins have been moved to the `../../packages/neon-fx/` library. See `../../packages/neon-fx/index.html` for an interactive demo.
 
 ### Usage Example
 
 ```javascript
-import { Filter, Compressor, Reverb, PluginChain } from '../neon-fx/index.js';
+import { Filter, Compressor, Reverb, PluginChain } from '../../packages/neon-fx/index.js';
 
 const ctx = new AudioContext();
 
@@ -134,12 +134,12 @@ compressor.bypassed = true;            // Bypass compressor
 
 ## Cloud Collaboration (neon-cloud)
 
-The collaboration system has been moved to the `../neon-cloud/` library. See `../neon-cloud/index.html` for full documentation.
+The collaboration system has been moved to the `../../packages/neon-cloud/` library. See `../../packages/neon-cloud/index.html` for full documentation.
 
 ### Usage Example
 
 ```javascript
-import { CloudStore } from '../neon-cloud/index.js';
+import { CloudStore } from '../../packages/neon-cloud/index.js';
 
 const store = new CloudStore({
     room: new WebsimSocket(),

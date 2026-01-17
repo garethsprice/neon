@@ -5,7 +5,8 @@ Git-like versioning and collaboration for music apps. Works with WebsimSocket.
 ## Import
 
 ```javascript
-import { CloudStore, createCloudStore, diffState, hasChanges } from '../neon-cloud/index.js';
+// From apps/ or tools/:
+import { CloudStore, createCloudStore, diffState, hasChanges } from '../../packages/neon-cloud/index.js';
 ```
 
 ## Quick Start
@@ -148,7 +149,7 @@ const config = {
 ## Utilities
 
 ```javascript
-import { timeAgo, deepEqual, generateId, debounce } from '../neon-cloud/index.js';
+import { timeAgo, deepEqual, generateId, debounce } from '../../packages/neon-cloud/index.js';
 
 timeAgo(timestamp)        // '2 hours ago'
 deepEqual(a, b)           // Deep object comparison
