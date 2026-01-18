@@ -1,0 +1,20 @@
+{
+  "name": "neon-monorepo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "test:cloud": "node --experimental-vm-modules node_modules/jest/bin/jest.js packages/neon-cloud",
+    "test:ui": "node --experimental-vm-modules node_modules/jest/bin/jest.js packages/neon-ui",
+    "test:fx": "node --experimental-vm-modules node_modules/jest/bin/jest.js packages/neon-fx"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  }
+}
