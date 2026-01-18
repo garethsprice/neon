@@ -3,14 +3,15 @@
    Built on create-neon-app patterns
    ========================================================================== */
 
-import { NoiseEngine } from './noise-engine.js';
+import { AudioEngine } from './audio-engine.js';
 import { VinylEffect } from './vinyl-effect.js';
 import {
     createKnob,
     createLedButton,
     createMachineButton,
     createSpectrumAnalyzer,
-    showToast
+    showToast,
+    el
 } from '../../packages/neon-ui/index.js';
 import { AdaptiveNoise } from '../../packages/neon-fx/index.js';
 import { setupCloud } from './cloud.js';
@@ -18,22 +19,22 @@ import { setupCloud } from './cloud.js';
 // --------------------------------------------------------------------------
 // DOM ELEMENTS
 // --------------------------------------------------------------------------
-const saveBtn = document.getElementById('save-btn');
-const loadBtn = document.getElementById('load-btn');
-const powerBtn = document.getElementById('power-btn');
-const masterKnobContainer = document.getElementById('master-knob');
-const channelsContainer = document.getElementById('channels');
-const adaptiveControls = document.getElementById('adaptive-controls');
-const adaptiveSection = document.getElementById('adaptive-section');
-const vinylControls = document.getElementById('vinyl-controls');
-const micVizContainer = document.getElementById('mic-viz-container');
-const visualizerContainer = document.getElementById('visualizer-container');
-const statusText = document.getElementById('status-text');
+const saveBtn = el('save-btn');
+const loadBtn = el('load-btn');
+const powerBtn = el('power-btn');
+const masterKnobContainer = el('master-knob');
+const channelsContainer = el('channels');
+const adaptiveControls = el('adaptive-controls');
+const adaptiveSection = el('adaptive-section');
+const vinylControls = el('vinyl-controls');
+const micVizContainer = el('mic-viz-container');
+const visualizerContainer = el('visualizer-container');
+const statusText = el('status-text');
 
 // --------------------------------------------------------------------------
 // STATE
 // --------------------------------------------------------------------------
-const engine = new NoiseEngine();
+const engine = new AudioEngine();
 let vinylEffect = null;
 let adaptivePlugin = null;
 let micStream = null;

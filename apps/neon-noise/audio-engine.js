@@ -1,4 +1,4 @@
-export class NoiseEngine {
+export class AudioEngine {
     constructor() {
         this.context = null;
         this.isRunning = false;
