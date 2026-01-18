@@ -4,42 +4,17 @@
  * Uses neon-cloud library for collaboration, with app-specific UI rendering.
  */
 
-import { showToast } from '../../packages/neon-ui/index.js';
-import { CloudStore, timeAgo } from '../../packages/neon-cloud/index.js';
+import { showToast, el, queryAll } from '../../packages/neon-ui/index.js';
+import {
+    CloudStore,
+    timeAgo,
+    createCommitMessageGenerator,
+    createCloudEventHandlers,
+    createHistoryIndicator
+} from '../../packages/neon-cloud/index.js';
 
-const el = id => document.getElementById(id);
-const queryAll = s => document.querySelectorAll(s);
-
-/**
- * Generate AI-powered commit messages for synth changes
- */
-async function generateSynthCommitMessage(changes, prevData, currData, options = {}) {
-    if (options.isRemix && options.remixSource) {
-        return `Remixed from @${options.remixSource.owner}/${options.remixSource.name}`;
-    }
-
-    if (changes.isInitial) {
-        return "Initial commit";
-    }
-
-    if (changes.summary.length === 0) {
-        return "Minor adjustments";
-    }
-
-    const parts = changes.summary;
-
-    try {
-        const response = await websim.chat.completions.create({
-            messages: [{
-                role: "user",
-                content: `Generate a brief, meaningful commit message (max 50 chars) for a synth track. These changes were made:\n\n${parts.join('\n')}\n\nWrite a concise message that captures the essence of these changes. Reply with ONLY the message, no quotes. Examples: "New acid bassline in track 1", "Added dreamy pad progression", "Tweaked filter resonance"`
-            }]
-        });
-        return response.content.trim().replace(/^["']|["']$/g, '').substring(0, 60);
-    } catch (e) {
-        return parts[0]?.substring(0, 60) || "Updated track";
-    }
-}
+// Create synth-specific commit message generator
+const generateSynthCommitMessage = createCommitMessageGenerator('synth');
 
 export function setupCloud(room, ctx) {
     const { app, engine, pianoRoll, elements } = ctx;
@@ -55,6 +30,17 @@ export function setupCloud(room, ctx) {
             arrayFields: ['tracks', 'trackNames'],
             ignoreFields: ['_id', 'id', 'createdAt', 'updatedAt', 'selectedTrackIdx']
         }
+    });
+
+    // Create reusable event handlers
+    const cloudHandlers = createCloudEventHandlers(store, {
+        deleteConfirmMessage: 'Delete this track and all its history forever?'
+    });
+
+    // Create history indicator manager
+    const historyIndicator = createHistoryIndicator({
+        store,
+        indicator: el('history-indicator')
     });
 
     // UI state
@@ -240,34 +226,11 @@ export function setupCloud(room, ctx) {
         }
     }
 
-    // Handle like toggle
-    async function handleLike(trackId, e) {
-        e.stopPropagation();
-        const result = await store.toggleLike(trackId);
-        showToast(result.liked ? "ADDED TO LIKES" : "REMOVED FROM LIKES", result.liked ? "success" : "info");
-    }
-
-    // Handle track deletion
-    async function handleDelete(trackId, e) {
-        e.stopPropagation();
-        if (confirm("Delete this track and all its history forever?")) {
-            await store.deleteTrack(trackId);
-            showToast("TRACK DELETED", "info");
-        }
-    }
-
-    // Handle visibility toggle
-    async function toggleVisibility(trackId, currentVisibility, e) {
-        e.stopPropagation();
-        const newVisibility = currentVisibility === 'private' ? 'public' : 'private';
-        await store.setVisibility(trackId, newVisibility);
-        showToast(`TRACK IS NOW ${newVisibility.toUpperCase()}`, "info");
-    }
-
-    // Record play
-    async function recordPlay(trackId) {
-        await store.recordPlay(trackId);
-    }
+    // Use shared event handlers
+    const handleLike = (trackId, e) => cloudHandlers.handleLike(trackId, e);
+    const handleDelete = (trackId, e) => cloudHandlers.handleDelete(trackId, e, renderFeed);
+    const toggleVisibility = (trackId, currentVisibility, e) => cloudHandlers.toggleVisibility(trackId, currentVisibility, e);
+    const recordPlay = (trackId) => cloudHandlers.recordPlay(trackId);
 
     // Load a commit
     async function loadCommit(commitId, autoPlay = false) {
@@ -277,7 +240,7 @@ export function setupCloud(room, ctx) {
         if (result.error) return false;
 
         applyState(result.data);
-        updateHistoryIndicator();
+        historyIndicator.update();
 
         elements.communitySidebar.classList.remove('open');
         elements.communityToggleBtn.classList.remove('active');
@@ -302,7 +265,7 @@ export function setupCloud(room, ctx) {
         if (pianoRoll.isPlaying) pianoRoll.toggle();
 
         applyState(result.data);
-        updateHistoryIndicator();
+        historyIndicator.update();
 
         elements.communitySidebar.classList.remove('open');
         elements.communityToggleBtn.classList.remove('active');
@@ -316,21 +279,6 @@ export function setupCloud(room, ctx) {
         }
 
         return true;
-    }
-
-    // Update history indicator
-    function updateHistoryIndicator() {
-        const indicator = el('history-indicator');
-        if (indicator) {
-            if (store.isViewingHistory && store.currentCommitId) {
-                const commit = store.commits.find(c => c.id === store.currentCommitId);
-                indicator.classList.add('visible');
-                indicator.innerHTML = `<i data-lucide="history"></i> VIEWING: ${commit?.message || 'Historical version'}`;
-                if (window.lucide) window.lucide.createIcons();
-            } else {
-                indicator.classList.remove('visible');
-            }
-        }
     }
 
     // Render inline history for a track

@@ -4,42 +4,13 @@
  * Uses neon-cloud library for saving and loading noise presets.
  */
 
-import { showToast } from '../../packages/neon-ui/index.js';
-import { CloudStore, timeAgo } from '../../packages/neon-cloud/index.js';
-
-const el = id => document.getElementById(id);
-
-/**
- * Generate commit messages for noise preset changes
- */
-function generateNoiseCommitMessage(changes, prevData, currData, options = {}) {
-    if (options.isRemix && options.remixSource) {
-        return `Remixed from @${options.remixSource.owner}/${options.remixSource.name}`;
-    }
-
-    if (changes.isInitial) {
-        return "Initial preset";
-    }
-
-    const parts = [];
-
-    if (changes.scalar?.sensitivity) {
-        parts.push(`Sensitivity: ${Math.round(changes.scalar.sensitivity.prev * 100)}% → ${Math.round(changes.scalar.sensitivity.curr * 100)}%`);
-    }
-
-    if (changes.objects?.volumes) {
-        const vols = changes.objects.volumes;
-        if (vols.modified?.length) {
-            vols.modified.forEach(key => {
-                const prev = Math.round((prevData?.volumes?.[key] || 0) * 100);
-                const curr = Math.round((currData?.volumes?.[key] || 0) * 100);
-                parts.push(`${key}: ${prev}% → ${curr}%`);
-            });
-        }
-    }
-
-    return parts[0]?.substring(0, 60) || "Updated preset";
-}
+import { showToast, el } from '../../packages/neon-ui/index.js';
+import {
+    CloudStore,
+    timeAgo,
+    generateSimpleCommitMessage,
+    createCloudEventHandlers
+} from '../../packages/neon-cloud/index.js';
 
 export function setupCloud(room, ctx) {
     const { engine, syncKnobs, saveBtn, loadBtn, getVinylEffect, getChannelEnabled, setChannelEnabled } = ctx;
@@ -73,7 +44,7 @@ export function setupCloud(room, ctx) {
     const store = new CloudStore({
         room,
         getCurrentUser: () => websim.getCurrentUser(),
-        generateCommitMessage: generateNoiseCommitMessage,
+        generateCommitMessage: generateSimpleCommitMessage,
         collectionPrefix: 'noise_',
         diffConfig: {
             scalarFields: ['name', 'description', 'sensitivity'],
@@ -81,6 +52,11 @@ export function setupCloud(room, ctx) {
             arrayFields: [],
             ignoreFields: ['_id', 'id', 'createdAt', 'updatedAt']
         }
+    });
+
+    // Create reusable event handlers
+    const cloudHandlers = createCloudEventHandlers(store, {
+        deleteConfirmMessage: 'Delete this preset forever?'
     });
 
     // UI state
@@ -169,21 +145,9 @@ export function setupCloud(room, ctx) {
         return true;
     }
 
-    // Handle like toggle
-    async function handleLike(trackId, e) {
-        e.stopPropagation();
-        const result = await store.toggleLike(trackId);
-        showToast(result.liked ? "ADDED TO LIKES" : "REMOVED FROM LIKES", result.liked ? "success" : "info");
-    }
-
-    // Handle preset deletion
-    async function handleDelete(trackId, e) {
-        e.stopPropagation();
-        if (confirm("Delete this preset forever?")) {
-            await store.deleteTrack(trackId);
-            showToast("PRESET DELETED", "info");
-        }
-    }
+    // Use shared event handlers
+    const handleLike = (trackId, e) => cloudHandlers.handleLike(trackId, e);
+    const handleDelete = (trackId, e) => cloudHandlers.handleDelete(trackId, e, renderFeed);
 
     // Render the feed
     async function renderFeed() {

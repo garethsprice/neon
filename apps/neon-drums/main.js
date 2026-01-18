@@ -1,13 +1,11 @@
 import { AudioEngine } from './audio-engine.js';
 import { Sequencer } from './sequencer.js';
-import { showToast, createKnobElement } from './ui-utils.js';
+import { showToast, createKnobElement, el, queryAll } from '../../packages/neon-ui/index.js';
 import { setupCloud } from './cloud.js';
 import { handleAiGeneration, updateAiButtonText } from './ai-handler.js';
 import { NeonVisualizer } from './visualizer.js';
 
 const room = new WebsimSocket();
-const el = id => document.getElementById(id);
-const queryAll = s => document.querySelectorAll(s);
 
 let audioEngine, sequencer, currentInstrument = 'bassDrum', aiPrompts, visualizer;
 
