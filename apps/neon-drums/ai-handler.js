@@ -1,4 +1,4 @@
-import { showToast } from './ui-utils.js';
+import { showToast } from '../../packages/neon-ui/index.js';
 import { runWalkthrough } from './walkthrough.js';
 
 const el = id => document.getElementById(id);

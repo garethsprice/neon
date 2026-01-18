@@ -27,7 +27,6 @@ audio-engine.js  - Web Audio API wrapper, effects chains, sample playback
 sequencer.js     - Pattern/track state management, 16 patterns (A-P) per bank
 ai-handler.js    - Claude API integration for rhythm generation
 cloud.js         - WebsimSocket sync, persistence, community feed
-ui-utils.js      - Re-exports from neon-ui (backwards compatibility)
 visualizer.js    - WebGL mesh gradient background
 walkthrough.js   - AI generation animation sequence
 ```

@@ -1,4 +1,4 @@
-import { showToast } from './ui-utils.js';
+import { showToast } from '../../packages/neon-ui/index.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const el = id => document.getElementById(id);
