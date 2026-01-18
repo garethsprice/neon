@@ -58,3 +58,19 @@ export {
     generateId,
     debounce
 } from './utils.js';
+
+// Track/commit loading helpers
+export { createTrackLoader } from './loaders.js';
+
+// Commit message generation
+export {
+    createCommitMessageGenerator,
+    generateSimpleCommitMessage
+} from './commit-generator.js';
+
+// UI Components
+export {
+    createCloudEventHandlers,
+    createSaveButtonManager,
+    createHistoryIndicator
+} from './components/event-handlers.js';
