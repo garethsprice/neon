@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Neon App</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Lucide icons for UI elements -->
+    <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
     <div id="app">
@@ -27,6 +29,12 @@
                     <div class="ui-label">LOAD</div>
                 </div>
                 <div class="ui-unit">
+                    <button id="community-toggle-btn" class="btn-machine btn-square btn-transport">
+                        <i data-lucide="activity" class="btn-icon"></i>
+                    </button>
+                    <div class="ui-label">ACTIVITY</div>
+                </div>
+                <div class="ui-unit">
                     <button id="start-btn" class="btn-machine btn-square btn-transport"></button>
                     <div class="ui-label transport-play-labels">
                         <span class="label-default">START</span>
@@ -37,6 +45,9 @@
         </header>
 
         <main>
+            <!-- History indicator for viewing past commits -->
+            <div id="history-indicator" class="history-indicator"></div>
+
             <div class="main-layout">
                 <div class="main-column">
                     <!-- AI Copilot -->
@@ -77,8 +88,34 @@
         </footer>
     </div>
 
+    <!-- Community/Activity Sidebar -->
+    <div id="community-sidebar" class="sidebar-popout">
+        <div class="sidebar-close-row">
+            <button id="close-community-btn" class="close-sidebar-btn">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="plugin-header sidebar-header">ACTIVITY</div>
+        <div class="feed-toggle-row">
+            <button id="feed-filter-all" class="btn-filter active">ALL PROJECTS</button>
+            <button id="feed-filter-mine" class="btn-filter">MY PROJECTS</button>
+        </div>
+        <div id="project-feed" class="feed-container">
+            <div class="feed-loading">CONNECTING...</div>
+        </div>
+        <div id="feed-pagination" class="feed-pagination-row"></div>
+    </div>
+
     <div id="toast-container"></div>
 
+    <!-- WebSim API stub for local development -->
+    <script src="../websim-stub/websim.js"></script>
     <script type="module" src="main.js"></script>
+    <script>
+        // Initialize Lucide icons after DOM loads
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) lucide.createIcons();
+        });
+    </script>
 </body>
 </html>

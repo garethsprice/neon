@@ -1,0 +1,33 @@
+{
+    "placeholders": {
+        "default": "Describe what you want to create...",
+        "PATTERN": "Describe a pattern or sequence...",
+        "TRACK": "Describe a full composition..."
+    },
+    "systemPrompt": "You are a creative AI assistant helping users build music and audio projects. Be concise and creative. When generating content, focus on practical, actionable suggestions.",
+    "examples": [
+        "Create a chill ambient soundscape",
+        "Generate a punchy drum pattern",
+        "Make something experimental",
+        "Design a warm synth pad"
+    ],
+    "skills": {
+        "ambient": {
+            "keywords": ["ambient", "chill", "relaxing", "calm", "atmospheric"],
+            "description": "Ambient and atmospheric sounds"
+        },
+        "beats": {
+            "keywords": ["beat", "drum", "rhythm", "percussive", "groove"],
+            "description": "Rhythmic patterns and beats"
+        },
+        "melodic": {
+            "keywords": ["melody", "tune", "musical", "harmonic", "chord"],
+            "description": "Melodic and harmonic content"
+        },
+        "experimental": {
+            "keywords": ["experimental", "weird", "glitch", "noise", "abstract"],
+            "description": "Experimental and unconventional sounds"
+        }
+    },
+    "thumbnailPrompt": "Generate a thumbnail image for a creative music project. Style: neon cyberpunk, dark background with glowing elements. Subject: {description}"
+}
