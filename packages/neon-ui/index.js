@@ -51,3 +51,6 @@ export { createPatternBank } from './pattern-bank.js';
 
 // Track Panel - Track metadata with thumbnail
 export { createTrackPanel } from './track-panel.js';
+
+// Utilities - DOM helpers
+export { el, queryAll, query, sleep, debounce, throttle, on, createElement } from './utils.js';
