@@ -9,6 +9,19 @@
         return 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
     }
 
+    // Convert base64 string to a Blob URL
+    // This creates a proper URL (blob:http://...) that works like a regular image URL
+    function base64ToBlobUrl(base64, mimeType = 'image/png') {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: mimeType });
+        return URL.createObjectURL(blob);
+    }
+
     // Local storage helper - generic key for all neon apps
     const STORAGE_KEY = 'neon_websim_local_data';
     const USER_KEY = 'neon_websim_username';
@@ -431,14 +444,17 @@
 
                     const jsonMode = options.json || options.response_format?.type === 'json_object';
 
-                    console.log('[websim.chat] Request:', prompt.substring(0, 100) + (jsonMode ? ' (JSON mode)' : '') + '...');
+                    console.group('[websim.chat] Request');
+                    console.log('Messages:', JSON.stringify(messages, null, 2));
+                    console.log('Options:', { json: jsonMode, temperature: options.temperature, max_tokens: options.max_tokens });
+                    console.groupEnd();
 
                     let content;
 
                     // Use OpenAI if configured
                     if (openaiConfig?.apiKey) {
                         try {
-                            console.log(`[websim.chat] Using OpenAI (${openaiConfig.chatModel})`);
+                            console.log('[websim.chat] Using OpenAI:', openaiConfig.chatModel);
                             content = await callOpenAI(messages, options);
                         } catch (e) {
                             console.error('[websim.chat] OpenAI error:', e.message);
@@ -447,11 +463,14 @@
                         }
                     } else {
                         // Simulate network delay for mock
+                        console.log('[websim.chat] Using mock (no API key configured)');
                         await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
                         content = getMockResponse(prompt, jsonMode);
                     }
 
-                    console.log('[websim.chat] Response:', content.substring(0, 100) + '...');
+                    console.group('[websim.chat] Response');
+                    console.log('Content:', content);
+                    console.groupEnd();
 
                     return {
                         content,
@@ -464,7 +483,10 @@
         // Image Generation
         imageGen: async (options = {}) => {
             const { prompt, aspect_ratio, size, model, quality } = options;
-            console.log('[websim.imageGen] Request:', prompt?.substring(0, 50) + '...');
+            console.group('[websim.imageGen] Request');
+            console.log('Prompt:', prompt);
+            console.log('Options:', { aspect_ratio, size, model, quality });
+            console.groupEnd();
 
             // Use OpenAI if configured
             if (openaiConfig?.apiKey) {
@@ -545,13 +567,13 @@
                     if (imageData.url) {
                         imageUrl = imageData.url;
                     } else if (imageData.b64_json) {
-                        // Convert base64 to data URL (gpt-image models return PNG)
-                        imageUrl = `data:image/png;base64,${imageData.b64_json}`;
+                        // Convert base64 to Blob URL (more efficient than data URL)
+                        imageUrl = base64ToBlobUrl(imageData.b64_json, 'image/png');
                     } else {
                         throw new Error('No image data in response');
                     }
 
-                    console.log('[websim.imageGen] Generated successfully');
+                    console.log('[websim.imageGen] Response: Generated successfully, URL:', imageUrl);
                     return { url: imageUrl };
 
                 } catch (e) {
@@ -586,10 +608,12 @@
                 </svg>
             `.trim();
 
-            const dataUrl = 'data:image/svg+xml;base64,' + btoa(svg);
+            // Create blob URL from SVG
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const blobUrl = URL.createObjectURL(blob);
 
-            console.log('[websim.imageGen] Returning placeholder image');
-            return { url: dataUrl };
+            console.log('[websim.imageGen] Response: Mock placeholder image, URL:', blobUrl);
+            return { url: blobUrl };
         }
     };
 

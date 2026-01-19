@@ -13,7 +13,7 @@ Open `index.html` to interactively test all APIs:
 ## Usage
 
 ```html
-<script src="../websim-stub/websim.js"></script>
+<script type="module" src="../websim-stub/websim.js"></script>
 <script type="module" src="app.js"></script>
 ```
 
