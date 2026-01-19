@@ -7,8 +7,12 @@ import {
   HighpassFilter,
   Saturation,
   Compressor,
+  Limiter,
   Reverb,
-  Delay
+  Delay,
+  StereoPanner,
+  Distortion,
+  Bitcrusher
 } from '@neon/fx';
 
 export type InstrumentKey =
@@ -30,22 +34,40 @@ export interface Manifest {
 export type SampleData = [string, number, number, ...number[]];
 
 export interface FXParams {
+  // Filters
   lpFilterEnabled?: boolean;
   lpFilterCutoff?: number;
   lpFilterResonance?: number;
   hpFilterEnabled?: boolean;
   hpFilterCutoff?: number;
   hpFilterResonance?: number;
+  // Saturation
   saturationEnabled?: boolean;
   saturationDrive?: number;
+  // Distortion
+  distortionEnabled?: boolean;
+  distortionDrive?: number;
+  distortionTone?: number;
+  distortionType?: 'soft' | 'hard' | 'fuzz' | 'overdrive';
+  // Bitcrusher
+  bitcrusherEnabled?: boolean;
+  bitcrusherBits?: number;
+  bitcrusherDownsample?: number;
+  // Compression
   compressionEnabled?: boolean;
   compressionThreshold?: number;
   compressionRatio?: number;
+  // Stereo Panning
+  panEnabled?: boolean;
+  panPosition?: number;
+  // Sidechain
   sidechainEnabled?: boolean;
   sidechainAmount?: number;
   sidechainRelease?: number;
+  // Reverb
   reverbEnabled?: boolean;
   reverbMix?: number;
+  // Delay
   delayEnabled?: boolean;
   delayTime?: number;
   delayFeedback?: number;
@@ -63,7 +85,10 @@ interface EffectChain {
   lpFilter: LowpassFilter;
   hpFilter: HighpassFilter;
   saturation: Saturation;
+  distortion: Distortion;
+  bitcrusher: Bitcrusher;
   compressor: Compressor;
+  panner: StereoPanner;
   delay: Delay;
   sidechainGain: GainNode;
   reverb: Reverb;
@@ -82,6 +107,7 @@ export class AudioEngine {
   onError: (message: string) => void;
   chains: Map<string, EffectChain> = new Map();
   masterGain: GainNode;
+  masterLimiter: Limiter;
   openHiHatGainNode: GainNode | null = null;
   spriteBuffer: AudioBuffer | null = null;
 
@@ -89,9 +115,18 @@ export class AudioEngine {
     this.ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     this.onError = options.onError || (() => {});
 
+    // Master chain: gain -> limiter -> destination
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 0.8;
-    this.masterGain.connect(this.ctx.destination);
+
+    // Master limiter prevents clipping and adds punch
+    this.masterLimiter = new Limiter(this.ctx, {
+      threshold: -1,  // Brick wall at -1dB
+      release: 50     // Fast release for transients
+    });
+
+    this.masterGain.connect(this.masterLimiter.input);
+    this.masterLimiter.connect(this.ctx.destination);
   }
 
   setMasterVolume(value: number): void {
@@ -101,9 +136,23 @@ export class AudioEngine {
   }
 
   setupChain(instrumentKey: string): void {
+    // Filters for tone shaping
     const lpFilter = new LowpassFilter(this.ctx, { cutoff: 20000, resonance: 0 });
     const hpFilter = new HighpassFilter(this.ctx, { cutoff: 20, resonance: 0 });
+
+    // Saturation for warmth/analog feel
     const saturation = new Saturation(this.ctx, { drive: 0, mix: 100 });
+    saturation.bypassed = true;
+
+    // Distortion for aggressive sounds
+    const distortion = new Distortion(this.ctx, { drive: 30, tone: 50, level: 50, mix: 100, type: 'overdrive' });
+    distortion.bypassed = true;
+
+    // Bitcrusher for lo-fi/electronic sounds
+    const bitcrusher = new Bitcrusher(this.ctx, { bits: 12, downsample: 1, mix: 100 });
+    bitcrusher.bypassed = true;
+
+    // Compressor for punch and consistency
     const compressor = new Compressor(this.ctx, {
       threshold: -24,
       ratio: 12,
@@ -112,20 +161,36 @@ export class AudioEngine {
       knee: 30,
       makeupGain: 0
     });
-    const delay = new Delay(this.ctx, { time: 300, feedback: 40, mix: 0, damping: 0 });
-    const reverb = new Reverb(this.ctx, { mix: 0, decay: 1.5, damping: 50, preDelay: 10 });
+    compressor.bypassed = true;
 
+    // Stereo panner for positioning in stereo field
+    const panner = new StereoPanner(this.ctx, { pan: 0 });
+
+    // Delay for rhythmic effects
+    const delay = new Delay(this.ctx, { time: 300, feedback: 40, mix: 0, damping: 0 });
+    delay.bypassed = true;
+
+    // Sidechain ducking
     const sidechainGain = this.ctx.createGain();
     sidechainGain.gain.value = 1.0;
+
+    // Reverb for space
+    const reverb = new Reverb(this.ctx, { mix: 0, decay: 1.5, damping: 50, preDelay: 10 });
+    reverb.bypassed = true;
 
     const effectInput = this.ctx.createGain();
     const effectOutput = this.ctx.createGain();
 
+    // Signal chain: input -> filters -> saturation -> distortion -> bitcrusher ->
+    //               compressor -> panner -> delay -> sidechain -> reverb -> output
     effectInput.connect(lpFilter.input);
     lpFilter.connect(hpFilter);
     hpFilter.connect(saturation);
-    saturation.connect(compressor);
-    compressor.connect(delay);
+    saturation.connect(distortion);
+    distortion.connect(bitcrusher);
+    bitcrusher.connect(compressor);
+    compressor.connect(panner);
+    panner.connect(delay);
     delay.output.connect(sidechainGain);
     sidechainGain.connect(reverb.input);
     reverb.output.connect(effectOutput);
@@ -137,7 +202,10 @@ export class AudioEngine {
       lpFilter,
       hpFilter,
       saturation,
+      distortion,
+      bitcrusher,
       compressor,
+      panner,
       delay,
       sidechainGain,
       reverb,
@@ -236,6 +304,7 @@ export class AudioEngine {
 
     const rampTime = 0.02;
 
+    // Lowpass Filter
     if (fxParams.lpFilterEnabled) {
       const freq = 20 * Math.pow(1000, (fxParams.lpFilterCutoff || 100) / 100);
       const resonance = (fxParams.lpFilterResonance || 0) * 0.8;
@@ -245,6 +314,7 @@ export class AudioEngine {
       chain.lpFilter.bypassed = true;
     }
 
+    // Highpass Filter
     if (fxParams.hpFilterEnabled) {
       const freq = 20 * Math.pow(1000, (fxParams.hpFilterCutoff || 0) / 100);
       const resonance = (fxParams.hpFilterResonance || 0) * 0.8;
@@ -254,6 +324,7 @@ export class AudioEngine {
       chain.hpFilter.bypassed = true;
     }
 
+    // Saturation
     if (fxParams.saturationEnabled) {
       chain.saturation.setParam('drive', fxParams.saturationDrive || 20, rampTime);
       chain.saturation.bypassed = false;
@@ -261,6 +332,31 @@ export class AudioEngine {
       chain.saturation.bypassed = true;
     }
 
+    // Distortion
+    if (fxParams.distortionEnabled) {
+      chain.distortion.setParam('drive', fxParams.distortionDrive || 50, rampTime);
+      chain.distortion.setParam('tone', fxParams.distortionTone || 50, rampTime);
+      if (fxParams.distortionType) {
+        chain.distortion.type = fxParams.distortionType;
+      }
+      chain.distortion.bypassed = false;
+    } else {
+      chain.distortion.bypassed = true;
+    }
+
+    // Bitcrusher
+    if (fxParams.bitcrusherEnabled) {
+      // bits: 1-16, default 12 for subtle effect
+      const bits = fxParams.bitcrusherBits !== undefined ? fxParams.bitcrusherBits : 12;
+      const downsample = fxParams.bitcrusherDownsample !== undefined ? fxParams.bitcrusherDownsample : 1;
+      chain.bitcrusher.setParam('bits', bits, 0);
+      chain.bitcrusher.setParam('downsample', downsample, 0);
+      chain.bitcrusher.bypassed = false;
+    } else {
+      chain.bitcrusher.bypassed = true;
+    }
+
+    // Compressor
     if (fxParams.compressionEnabled) {
       const threshold = -((fxParams.compressionThreshold || 50) / 100) * 60;
       const ratio = 1 + ((fxParams.compressionRatio || 50) / 100) * 19;
@@ -270,6 +366,19 @@ export class AudioEngine {
       chain.compressor.bypassed = true;
     }
 
+    // Stereo Panner
+    if (fxParams.panEnabled) {
+      // panPosition from UI: 0 (left) to 100 (right), 50 = center
+      // StereoPanner expects: -100 (left) to 100 (right), 0 = center
+      const uiValue = fxParams.panPosition !== undefined ? fxParams.panPosition : 50;
+      const pan = (uiValue - 50) * 2; // Convert 0-100 to -100 to +100
+      chain.panner.setParam('pan', pan, rampTime);
+      chain.panner.bypassed = false;
+    } else {
+      chain.panner.bypassed = true;
+    }
+
+    // Reverb
     if (fxParams.reverbEnabled) {
       const mix = Math.min(100, (fxParams.reverbMix || 15) * 1.5);
       chain.reverb.setParam('mix', mix, rampTime);
@@ -278,6 +387,7 @@ export class AudioEngine {
       chain.reverb.bypassed = true;
     }
 
+    // Delay
     if (fxParams.delayEnabled) {
       const time = 10 + ((fxParams.delayTime || 30) / 100) * 990;
       const feedback = fxParams.delayFeedback || 40;
@@ -287,6 +397,20 @@ export class AudioEngine {
     } else {
       chain.delay.bypassed = true;
     }
+  }
+
+  /**
+   * Set master limiter threshold
+   */
+  setMasterLimiterThreshold(dB: number): void {
+    this.masterLimiter.setParam('threshold', dB, 0.02);
+  }
+
+  /**
+   * Get current master limiter gain reduction
+   */
+  getMasterLimiterReduction(): number {
+    return this.masterLimiter.reduction;
   }
 
   triggerSidechain(sourceInstrumentKey: string, getParamValueFn: (inst: string, param: string) => unknown): void {

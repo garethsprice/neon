@@ -132,26 +132,44 @@ export class Sequencer {
     this.INSTS.forEach(key => {
       const info = this.audio.manifest?.instruments[key] || { parameters: [] };
       this.trackParams[key] = {
-        saturationEnabled: false,
-        saturationDrive: 20,
-        compressionEnabled: false,
-        compressionThreshold: 50,
-        compressionRatio: 50,
-        sidechainEnabled: false,
-        sidechainAmount: 50,
-        sidechainRelease: 30,
-        reverbEnabled: false,
-        reverbMix: 15,
-        delayEnabled: false,
-        delayTime: 30,
-        delayFeedback: 40,
-        delayMix: 30,
+        // Filters
         lpFilterEnabled: false,
         lpFilterCutoff: 100,
         lpFilterResonance: 0,
         hpFilterEnabled: false,
         hpFilterCutoff: 0,
         hpFilterResonance: 0,
+        // Saturation
+        saturationEnabled: false,
+        saturationDrive: 20,
+        // Distortion
+        distortionEnabled: false,
+        distortionDrive: 50,
+        distortionTone: 50,
+        // Bitcrusher
+        bitcrusherEnabled: false,
+        bitcrusherBits: 12,
+        bitcrusherDownsample: 1,
+        // Compression
+        compressionEnabled: false,
+        compressionThreshold: 50,
+        compressionRatio: 50,
+        // Stereo Pan
+        panEnabled: false,
+        panPosition: 50, // 0=left, 50=center, 100=right
+        // Sidechain
+        sidechainEnabled: false,
+        sidechainAmount: 50,
+        sidechainRelease: 30,
+        // Delay
+        delayEnabled: false,
+        delayTime: 30,
+        delayFeedback: 40,
+        delayMix: 30,
+        // Reverb
+        reverbEnabled: false,
+        reverbMix: 15,
+        // Other
         flamAmount: 20,
         level: 80
       };

@@ -54,7 +54,10 @@ const elements: Elements = {
 
 const state: AppState = { shift: false, shiftPressed: false, clear: false, bank: 1, aiModeIdx: 2, aiWalkthrough: true, fxPage: 0, visibility: 'public' };
 const banks: Record<number, PatternId[]> = { 1: 'ABCDEFGH'.split(''), 2: 'IJKLMNOP'.split('') };
-const FX_PAGES = [['lpFilter', 'hpFilter', 'saturation'], ['compression', 'sidechain'], ['delay', 'reverb']];
+const FX_PAGES = [
+  ['lpFilter', 'hpFilter', 'saturation', 'distortion', 'bitcrusher'],
+  ['compression', 'pan', 'sidechain', 'delay', 'reverb']
+];
 const aiModes = ['PATTERN', 'CHAIN', 'TRACK'];
 const scales = [{ l: '1x', v: 1 }, { l: '3/4', v: 0.667 }, { l: '1.5x', v: 0.5 }, { l: '2x', v: 0.333 }];
 
@@ -246,9 +249,24 @@ function renderFXControls(): void {
   const activeModules = FX_PAGES[state.fxPage];
   const pageInfo = el('fx-page-info');
   if (pageInfo) pageInfo.innerText = `${state.fxPage + 1} / ${FX_PAGES.length}`;
+
+  // Display names for FX modules
+  const fxNames: Record<string, string> = {
+    lpFilter: 'LP FILTER',
+    hpFilter: 'HP FILTER',
+    saturation: 'SATURATE',
+    distortion: 'DISTORT',
+    bitcrusher: 'CRUSH',
+    compression: 'COMPRESS',
+    pan: 'PAN',
+    sidechain: 'SIDECHAIN',
+    delay: 'DELAY',
+    reverb: 'REVERB'
+  };
+
   container.innerHTML = activeModules.map(m => `
     <div class="fx-module ${params[m + 'Enabled'] ? 'enabled' : ''}" data-mod="${m}">
-      <h3><div class="toggle-fx"></div><span>${m.toUpperCase().replace('FILTER', ' FILTER')}</span></h3>
+      <h3><div class="toggle-fx"></div><span>${fxNames[m] || m.toUpperCase()}</span></h3>
       <div class="fx-controls" id="fx-ctrl-${m}"></div>
     </div>`).join('');
 
@@ -263,18 +281,24 @@ function renderFXControls(): void {
         if (s) audioEngine.play(currentInstrument, sequencer.trackParams[currentInstrument]);
       };
     }
-    const ctrls: Record<string, [string, string][]> = {
+    // [label, param, min, max] - defaults to 0, 100 if not specified
+    const ctrls: Record<string, [string, string, number?, number?][]> = {
       lpFilter: [['Cutoff', 'lpFilterCutoff'], ['Reso', 'lpFilterResonance']],
       hpFilter: [['Cutoff', 'hpFilterCutoff'], ['Reso', 'hpFilterResonance']],
       saturation: [['Drive', 'saturationDrive']],
+      distortion: [['Drive', 'distortionDrive'], ['Tone', 'distortionTone']],
+      bitcrusher: [['Bits', 'bitcrusherBits', 1, 16], ['Down', 'bitcrusherDownsample', 1, 50]],
       compression: [['Thresh', 'compressionThreshold'], ['Ratio', 'compressionRatio']],
+      pan: [['Pan', 'panPosition']],
       sidechain: [['Amt', 'sidechainAmount'], ['Rel', 'sidechainRelease']],
       delay: [['Time', 'delayTime'], ['Fdbk', 'delayFeedback'], ['Mix', 'delayMix']],
       reverb: [['Mix', 'reverbMix']]
     };
-    ctrls[m]?.forEach(([l, p]) => {
+    ctrls[m]?.forEach(([l, p, minVal, maxVal]) => {
       const inst = currentInstrument;
-      const k = createKnobElement(l, params[p] as number, 0, 100, (v: number) => {
+      const min = minVal ?? 0;
+      const max = maxVal ?? 100;
+      const k = createKnobElement(l, params[p] as number, min, max, (v: number) => {
         sequencer.setParam(inst, p, v);
       }, () => {
         if (sequencer.trackParams[inst][m + 'Enabled']) {
