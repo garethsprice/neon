@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/neon-fx" },
+    { "path": "./packages/neon-ui" },
+    { "path": "./packages/neon-cloud" },
+    { "path": "./apps/neon-drums" },
+    { "path": "./apps/neon-synth" },
+    { "path": "./apps/neon-noise" }
+  ]
+}

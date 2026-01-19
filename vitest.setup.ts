@@ -1,32 +1,30 @@
 /**
- * Jest Global Setup
+ * Vitest Global Setup
  * Runs before all tests
  */
 
-import { jest } from '@jest/globals';
-
-// Increase timeout for async tests
-jest.setTimeout(10000);
+import { vi } from 'vitest';
 
 // Mock matchMedia (not provided by jsdom)
 if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'matchMedia', {
     writable: true,
-    value: jest.fn().mockImplementation(query => ({
+    value: vi.fn().mockImplementation((query: string) => ({
       matches: false,
       media: query,
       onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
     })),
   });
 
   // Mock ResizeObserver
   global.ResizeObserver = class ResizeObserver {
-    constructor(callback) {
+    callback: ResizeObserverCallback;
+    constructor(callback: ResizeObserverCallback) {
       this.callback = callback;
     }
     observe() {}
@@ -40,9 +38,11 @@ if (typeof window !== 'undefined') {
     observe() {}
     unobserve() {}
     disconnect() {}
-  };
+  } as unknown as typeof IntersectionObserver;
 
   // Mock requestAnimationFrame
-  global.requestAnimationFrame = jest.fn(cb => setTimeout(cb, 16));
-  global.cancelAnimationFrame = jest.fn(id => clearTimeout(id));
+  global.requestAnimationFrame = vi.fn((cb: FrameRequestCallback) =>
+    setTimeout(() => cb(Date.now()), 16)
+  ) as unknown as typeof requestAnimationFrame;
+  global.cancelAnimationFrame = vi.fn((id: number) => clearTimeout(id));
 }
