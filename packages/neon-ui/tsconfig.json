@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "baseUrl": "../..",
+    "typeRoots": ["../../node_modules/@types", "../../types"],
+    "paths": {
+      "@neon/ui": ["./packages/neon-ui/src/index.ts"],
+      "@neon/ui/*": ["./packages/neon-ui/src/*"],
+      "@neon/fx": ["./packages/neon-fx/src/index.ts"],
+      "@neon/fx/*": ["./packages/neon-fx/src/*"],
+      "@neon/cloud": ["./packages/neon-cloud/src/index.ts"],
+      "@neon/cloud/*": ["./packages/neon-cloud/src/*"]
+    }
+  },
+  "include": ["src/**/*", "__tests__/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
