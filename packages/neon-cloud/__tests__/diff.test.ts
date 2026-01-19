@@ -2,8 +2,8 @@
  * Tests for neon-cloud state diffing functions
  */
 
-import { describe, it, expect } from '@jest/globals';
-import { diffState, hasChanges, createDiffConfig, DEFAULT_DIFF_CONFIG } from './diff.js';
+import { describe, it, expect } from 'vitest';
+import { diffState, hasChanges, createDiffConfig, DEFAULT_DIFF_CONFIG } from '../src/diff';
 
 describe('DEFAULT_DIFF_CONFIG', () => {
     it('has expected scalar fields', () => {
@@ -271,12 +271,12 @@ describe('diffState', () => {
 describe('hasChanges', () => {
     it('returns true when changes exist', () => {
         const changes = { hasChanges: true };
-        expect(hasChanges(changes)).toBe(true);
+        expect(hasChanges(changes as ReturnType<typeof diffState>)).toBe(true);
     });
 
     it('returns false when no changes exist', () => {
         const changes = { hasChanges: false };
-        expect(hasChanges(changes)).toBe(false);
+        expect(hasChanges(changes as ReturnType<typeof diffState>)).toBe(false);
     });
 });
 

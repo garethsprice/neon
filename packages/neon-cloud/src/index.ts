@@ -5,7 +5,7 @@
  * Provides track management, commit history, likes, plays, and real-time sync.
  *
  * @example
- * import { CloudStore, createCloudStore } from './neon-cloud/index.js';
+ * import { CloudStore, createCloudStore } from '@neon/cloud';
  *
  * // Create a store with WebsimSocket
  * const store = createCloudStore({
@@ -40,37 +40,83 @@
  * const feed = await store.getFeed({ filter: 'all', page: 1 });
  */
 
+// Types
+export type {
+  TrackVisibility,
+  RemixSource,
+  TrackStats,
+  Track,
+  Commit,
+  Like,
+  Play,
+  User,
+  ScalarChange,
+  ObjectModification,
+  ObjectFieldChanges,
+  ArrayFieldChanges,
+  DiffResult,
+  DiffConfig,
+  CommitOptions,
+  TrackMetadata,
+  CommitResult,
+  LoadResult,
+  FeedOptions,
+  EnrichedTrack,
+  FeedResult,
+  EventCallback,
+  ChangeEventData,
+  CommittedEventData,
+  LoadedEventData,
+  CloudStoreOptions,
+  CommitMessageGenerator,
+  TrackLoaderConfig,
+  LoadOptions,
+  LoaderResult,
+  AppPrompt,
+  CommitGeneratorOptions
+} from './types';
+
 // Main store class
-export { CloudStore, createCloudStore } from './store.js';
+export { CloudStore, createCloudStore } from './store';
 
 // Diffing utilities
 export {
-    diffState,
-    hasChanges,
-    createDiffConfig,
-    DEFAULT_DIFF_CONFIG
-} from './diff.js';
+  diffState,
+  hasChanges,
+  createDiffConfig,
+  DEFAULT_DIFF_CONFIG
+} from './diff';
 
 // Utility functions
 export {
-    timeAgo,
-    deepEqual,
-    generateId,
-    debounce
-} from './utils.js';
+  timeAgo,
+  deepEqual,
+  generateId,
+  debounce
+} from './utils';
 
 // Track/commit loading helpers
-export { createTrackLoader } from './loaders.js';
+export { createTrackLoader } from './loaders';
 
 // Commit message generation
 export {
-    createCommitMessageGenerator,
-    generateSimpleCommitMessage
-} from './commit-generator.js';
+  createCommitMessageGenerator,
+  generateSimpleCommitMessage
+} from './commit-generator';
 
 // UI Components
 export {
-    createCloudEventHandlers,
-    createSaveButtonManager,
-    createHistoryIndicator
-} from './components/event-handlers.js';
+  createCloudEventHandlers,
+  createSaveButtonManager,
+  createHistoryIndicator
+} from './components/event-handlers';
+
+// High-level app integration
+export {
+  createCloudApp,
+  type CloudAppConfig,
+  type CloudAppInstance,
+  type CloudElements,
+  type FeedItemTemplate,
+  type AppType
+} from './cloud-app';
