@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@neon/ui Playground</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: rgba(191, 95, 255, 0.2);
+      --text: #e0e0e0;
+      --text-dim: rgba(191, 95, 255, 0.6);
+      --accent: #bf5fff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 30px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .back-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85em;
+    }
+
+    h1 {
+      font-size: 1.5em;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 0.7em;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+    }
+
+    .component-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    .component-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .component-label {
+      font-size: 0.65em;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    #keyboard-container, #piano-roll-container, #tracker-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    .value-display {
+      font-family: monospace;
+      font-size: 0.8em;
+      color: var(--accent);
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: rgba(191, 95, 255, 0.15);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8em;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(191, 95, 255, 0.3);
+      border-color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="/" class="back-link">← Back to Hub</a>
+    <h1>@neon/ui Playground</h1>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Knobs</h2>
+    <div class="component-row">
+      <div class="component-item">
+        <div id="knob-volume"></div>
+        <span class="component-label">Volume</span>
+        <span id="knob-volume-value" class="value-display">50</span>
+      </div>
+      <div class="component-item">
+        <div id="knob-pan"></div>
+        <span class="component-label">Pan</span>
+        <span id="knob-pan-value" class="value-display">0</span>
+      </div>
+      <div class="component-item">
+        <div id="knob-filter"></div>
+        <span class="component-label">Filter</span>
+        <span id="knob-filter-value" class="value-display">100</span>
+      </div>
+      <div class="component-item">
+        <div id="knob-resonance"></div>
+        <span class="component-label">Resonance</span>
+        <span id="knob-resonance-value" class="value-display">0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Buttons</h2>
+    <div class="component-row">
+      <div class="component-item">
+        <div id="led-button-1"></div>
+        <span class="component-label">LED Button</span>
+      </div>
+      <div class="component-item">
+        <div id="led-button-2"></div>
+        <span class="component-label">Cyan</span>
+      </div>
+      <div class="component-item">
+        <div id="led-button-3"></div>
+        <span class="component-label">Green</span>
+      </div>
+      <div class="component-item">
+        <div id="machine-button-1"></div>
+        <span class="component-label">Machine</span>
+      </div>
+      <div class="component-item">
+        <div id="action-button-1"></div>
+        <span class="component-label">Action</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Step Buttons</h2>
+    <div class="component-row" id="step-buttons-container"></div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Pattern Bank</h2>
+    <div id="pattern-bank-container"></div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Keyboard</h2>
+    <div id="keyboard-container"></div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Piano Roll</h2>
+    <div id="piano-roll-container"></div>
+    <div class="controls">
+      <button id="piano-roll-play">Play</button>
+      <button id="piano-roll-stop">Stop</button>
+      <button id="piano-roll-clear">Clear</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Spectrum Analyzer</h2>
+    <div id="spectrum-container"></div>
+    <div class="controls">
+      <button id="spectrum-start">Start Audio</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Toast Notifications</h2>
+    <div class="controls">
+      <button id="toast-info">Info Toast</button>
+      <button id="toast-success">Success Toast</button>
+      <button id="toast-error">Error Toast</button>
+      <button id="toast-warning">Warning Toast</button>
+    </div>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@neon/cloud Playground</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: rgba(191, 95, 255, 0.2);
+      --text: #e0e0e0;
+      --text-dim: rgba(191, 95, 255, 0.6);
+      --accent: #bf5fff;
+      --cyan: #00ffff;
+      --green: #00ff88;
+      --red: #ff4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 30px;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .back-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.85em;
+    }
+
+    h1 {
+      font-size: 1.5em;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 0.7em;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: rgba(191, 95, 255, 0.15);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.85em;
+      transition: all 0.2s;
+    }
+
+    button:hover {
+      background: rgba(191, 95, 255, 0.3);
+      border-color: var(--accent);
+    }
+
+    textarea, input[type="text"] {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px;
+      color: var(--text);
+      font-family: 'Consolas', monospace;
+      font-size: 0.85em;
+      resize: vertical;
+    }
+
+    textarea:focus, input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .diff-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .diff-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .diff-panel label {
+      font-size: 0.7em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+    }
+
+    .diff-panel textarea {
+      min-height: 150px;
+    }
+
+    #diff-output {
+      margin-top: 16px;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      font-family: 'Consolas', monospace;
+      font-size: 0.8em;
+      white-space: pre-wrap;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .diff-add { color: var(--green); }
+    .diff-remove { color: var(--red); }
+    .diff-unchanged { color: var(--text-dim); }
+
+    #commit-output {
+      margin-top: 16px;
+      padding: 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+    }
+
+    .commit-message {
+      font-family: 'Consolas', monospace;
+      font-size: 0.9em;
+      color: var(--cyan);
+      margin-bottom: 8px;
+    }
+
+    .commit-body {
+      font-size: 0.8em;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .state-display {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .state-card {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+      padding: 12px;
+    }
+
+    .state-card h4 {
+      font-size: 0.7em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .state-card pre {
+      font-family: 'Consolas', monospace;
+      font-size: 0.75em;
+      color: var(--text);
+      overflow-x: auto;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.7em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .status-badge.online { background: rgba(0, 255, 136, 0.2); color: var(--green); }
+    .status-badge.offline { background: rgba(255, 68, 68, 0.2); color: var(--red); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="/" class="back-link">← Back to Hub</a>
+    <h1>@neon/cloud Playground</h1>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Diff Utilities</h2>
+    <p style="color: var(--text-dim); font-size: 0.85em; margin-bottom: 16px;">
+      Compare two JSON objects and see the differences highlighted.
+    </p>
+
+    <div class="diff-container">
+      <div class="diff-panel">
+        <label>Previous State (JSON)</label>
+        <textarea id="diff-old">{
+  "bpm": 120,
+  "volume": 80,
+  "tracks": ["kick", "snare"],
+  "effects": {
+    "reverb": true,
+    "delay": false
+  }
+}</textarea>
+      </div>
+      <div class="diff-panel">
+        <label>New State (JSON)</label>
+        <textarea id="diff-new">{
+  "bpm": 140,
+  "volume": 80,
+  "tracks": ["kick", "snare", "hihat"],
+  "effects": {
+    "reverb": true,
+    "delay": true,
+    "filter": true
+  }
+}</textarea>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="compute-diff">Compute Diff</button>
+      <button id="format-diff">Format as HTML</button>
+    </div>
+
+    <div id="diff-output"></div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">Commit Message Generator</h2>
+    <p style="color: var(--text-dim); font-size: 0.85em; margin-bottom: 16px;">
+      Generate semantic commit messages from state changes. Uses diff analysis to create descriptive messages.
+    </p>
+
+    <div class="controls">
+      <button id="generate-commit">Generate Commit Message</button>
+    </div>
+
+    <div id="commit-output"></div>
+  </div>
+
+  <div class="section">
+    <h2 class="section-title">State Simulation</h2>
+    <p style="color: var(--text-dim); font-size: 0.85em; margin-bottom: 16px;">
+      Simulate state changes and see how the diff utilities track them.
+    </p>
+
+    <div class="controls">
+      <button id="state-change-bpm">Change BPM</button>
+      <button id="state-add-track">Add Track</button>
+      <button id="state-toggle-fx">Toggle Effect</button>
+      <button id="state-reset">Reset State</button>
+    </div>
+
+    <div class="state-display">
+      <div class="state-card">
+        <h4>Current State</h4>
+        <pre id="current-state"></pre>
+      </div>
+      <div class="state-card">
+        <h4>State History</h4>
+        <pre id="state-history"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
