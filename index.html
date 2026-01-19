@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Development Hub</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: rgba(191, 95, 255, 0.2);
+      --text: #e0e0e0;
+      --text-dim: rgba(191, 95, 255, 0.6);
+      --accent: #bf5fff;
+      --cyan: #00ffff;
+      --green: #00ff88;
+      --pink: #ff00ff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    h1 {
+      font-size: 3em;
+      font-weight: 900;
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, var(--accent), var(--cyan));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+      text-shadow: 0 0 60px rgba(191, 95, 255, 0.5);
+    }
+
+    .subtitle {
+      color: var(--text-dim);
+      font-size: 0.9em;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+
+    .section {
+      margin-bottom: 50px;
+    }
+
+    .section-title {
+      font-size: 0.75em;
+      font-weight: 900;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--cyan));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 40px rgba(191, 95, 255, 0.2);
+    }
+
+    .card:hover::before {
+      opacity: 1;
+    }
+
+    .card-icon {
+      font-size: 2em;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 1.2em;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+
+    .card-desc {
+      font-size: 0.85em;
+      color: var(--text-dim);
+      line-height: 1.5;
+    }
+
+    .card-tag {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 4px 10px;
+      font-size: 0.65em;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      border-radius: 4px;
+      background: rgba(191, 95, 255, 0.15);
+      color: var(--accent);
+    }
+
+    .card.app .card-tag { background: rgba(0, 255, 255, 0.15); color: var(--cyan); }
+    .card.playground .card-tag { background: rgba(0, 255, 136, 0.15); color: var(--green); }
+
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      padding-top: 30px;
+      border-top: 1px solid var(--border);
+      color: var(--text-dim);
+      font-size: 0.8em;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Neon</h1>
+      <p class="subtitle">Audio Application Development Suite</p>
+    </header>
+
+    <section class="section">
+      <h2 class="section-title">Applications</h2>
+      <div class="grid">
+        <a href="/apps/neon-drums/index.html" class="card app">
+          <div class="card-icon">🥁</div>
+          <h3 class="card-title">Neon Drums</h3>
+          <p class="card-desc">TR-909 style drum machine with sample playback, pattern sequencing, and real-time FX processing.</p>
+          <span class="card-tag">App</span>
+        </a>
+
+        <a href="/apps/neon-synth/index.html" class="card app">
+          <div class="card-icon">🎹</div>
+          <h3 class="card-title">Neon Synth</h3>
+          <p class="card-desc">Polyphonic synthesizer with piano roll sequencer, multiple oscillators, and AI-assisted composition.</p>
+          <span class="card-tag">App</span>
+        </a>
+
+        <a href="/apps/neon-noise/index.html" class="card app">
+          <div class="card-icon">🎧</div>
+          <h3 class="card-title">Neon Noise</h3>
+          <p class="card-desc">Ambient noise generator with vinyl crackle, adaptive soundscapes, and spectrum visualization.</p>
+          <span class="card-tag">App</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2 class="section-title">Library Playgrounds</h2>
+      <div class="grid">
+        <a href="/playgrounds/ui/index.html" class="card playground">
+          <div class="card-icon">🎛️</div>
+          <h3 class="card-title">@neon/ui</h3>
+          <p class="card-desc">Interactive component gallery: knobs, buttons, keyboards, piano rolls, spectrum analyzers, and more.</p>
+          <span class="card-tag">Playground</span>
+        </a>
+
+        <a href="/playgrounds/fx/index.html" class="card playground">
+          <div class="card-icon">🔊</div>
+          <h3 class="card-title">@neon/fx</h3>
+          <p class="card-desc">Audio effects playground: filters, reverb, delay, compression, saturation, and effect chains.</p>
+          <span class="card-tag">Playground</span>
+        </a>
+
+        <a href="/playgrounds/cloud/index.html" class="card playground">
+          <div class="card-icon">☁️</div>
+          <h3 class="card-title">@neon/cloud</h3>
+          <p class="card-desc">Cloud utilities demo: state sync, collaboration, diff visualization, and commit message generation.</p>
+          <span class="card-tag">Playground</span>
+        </a>
+
+        <a href="/playgrounds/ai/index.html" class="card playground">
+          <div class="card-icon">🧠</div>
+          <h3 class="card-title">@neon/ai</h3>
+          <p class="card-desc">AI capabilities: genre relationship graph, detection APIs, and prompt generation tools.</p>
+          <span class="card-tag">Playground</span>
+        </a>
+      </div>
+    </section>
+
+    <footer>
+      <p>
+        Development server running at <a href="http://localhost:3000">localhost:3000</a>
+        &nbsp;•&nbsp;
+        Run <code>npm run dev</code> to start
+      </p>
+    </footer>
+  </div>
+</body>
+</html>
