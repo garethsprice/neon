@@ -1,125 +1,144 @@
-/* ==========================================================================
-   NEON SYNTH 2 - AI Handler
-   AI generation logic and prompt management
-   ========================================================================== */
+/**
+ * NEON SYNTH 2 - AI Handler
+ * AI generation logic and prompt management
+ *
+ * Uses shared AI utilities from @neon/ai for genre detection and creative tools.
+ */
 
-import { showToast } from '../../packages/neon-ui/index.js';
+import {
+  type AIPromptsConfig,
+  type ThumbnailPromptConfig,
+  detectGenreFromKeywords,
+  detectGenre,
+  generateCreativeBrief as sharedGenerateBrief,
+  generateSuggestion as sharedGenerateSuggestion,
+  buildThumbnailPrompt as sharedBuildThumbnail,
+  DEFAULT_GENRES,
+  CREATIVE_BRIEF_PROMPT
+} from '@neon/ai';
+
+export interface AIPrompts {
+  creativeBrief: string;
+  improve: string;
+  thumbnail: ThumbnailPromptConfig;
+  /** Synth-specific genre augmentations */
+  genreAugments: Record<string, string>;
+}
+
+export interface BuildThumbnailOptions {
+  title: string;
+  description: string;
+  aiPromptText: string;
+  skill: string | null;
+}
+
+export interface BuildSystemPromptOptions {
+  targetMode: string;
+  state: CurrentState;
+  skill: string | null;
+  prompt: string;
+}
+
+export interface CurrentState {
+  trackName: string;
+  trackDescription: string | null;
+  thumbnailUrl: string | null;
+  thumbnailPrompt: string | null;
+  trackSkill: string | null;
+  trackNames: string[];
+  trackParams: Record<string, Record<string, unknown>>;
+  globalParams: Record<string, unknown>;
+  steps: number;
+  numKeys: number;
+  rootKey: number;
+  rootOctave: number;
+  tracks: (number | null | [number, number])[][];
+  selectedTrackIdx: number;
+  currentPatternId: string;
+  patterns: Record<string, unknown>;
+}
 
 // Default AI prompts (loaded from ai-prompts.json)
-let aiPrompts = {
-    creativeBrief: "Based on this music direction: '{{PROMPT}}', write a vivid 2-3 sentence creative brief. Reply with ONLY the brief text.",
-    detectSkill: "Analyze this prompt and identify the genre: synthwave, ambient, techno, house, trance, chillwave, darksynth, vaporwave, idm, cinematic. Prompt: '{{PROMPT}}'\nReply with ONLY the skill name.",
-    skills: {},
-    improve: "Suggest ONE improvement for this synth track. STATE: {{STATE}}\nReply with ONLY a short prompt.",
-    thumbnail: {
-        basePrompt: 'Create album cover art for an electronic music track',
-        template: 'Create striking album artwork. {{SKILL_ARTWORK}}. ABSOLUTELY NO TEXT. Style: {{STYLE}}',
-        styleHints: [
-            'Retro synthwave aesthetic with neon grid landscapes',
-            'Dark cyberpunk cityscape with rain and neon',
-            'Abstract geometric shapes with glowing outlines',
-            'Futuristic space scene with nebulae',
-            'Minimalist design with bold typography'
-        ]
-    }
+let aiPrompts: AIPrompts = {
+  creativeBrief: CREATIVE_BRIEF_PROMPT,
+  genreAugments: {},
+  improve: "Suggest ONE improvement for this synth track. STATE: {{STATE}}\nReply with ONLY a short prompt.",
+  thumbnail: {
+    basePrompt: 'Create album cover art for an electronic music track',
+    template: 'Create striking album artwork. {{GENRE_ARTWORK}}. ABSOLUTELY NO TEXT. Style: {{STYLE}}',
+    styleHints: [
+      'Retro synthwave aesthetic with neon grid landscapes',
+      'Dark cyberpunk cityscape with rain and neon',
+      'Abstract geometric shapes with glowing outlines',
+      'Futuristic space scene with nebulae',
+      'Minimalist design with bold typography'
+    ]
+  }
 };
 
 /**
  * Load AI prompts from JSON file
  */
-export function loadAiPrompts() {
-    return fetch('./ai-prompts.json')
-        .then(r => r.json())
-        .then(data => {
-            aiPrompts = data;
-            return aiPrompts;
-        })
-        .catch(() => {
-            // Use defaults
-            return aiPrompts;
-        });
+export function loadAiPrompts(): Promise<AIPrompts> {
+  return fetch('./ai-prompts.json')
+    .then(r => r.json())
+    .then((data: AIPrompts) => {
+      aiPrompts = data;
+      return aiPrompts;
+    })
+    .catch(() => {
+      // Use defaults
+      return aiPrompts;
+    });
 }
 
 /**
  * Get current AI prompts
  */
-export function getAiPrompts() {
-    return aiPrompts;
+export function getAiPrompts(): AIPrompts {
+  return aiPrompts;
 }
 
 /**
- * Detect skill/genre from prompt using keyword matching
- * @param {string} prompt - User's prompt
- * @returns {string|null} - Detected skill ID or null
+ * Detect genre from prompt using keyword matching
  */
-export function detectSkillFromKeywords(prompt) {
-    if (!prompt) return null;
-
-    const promptLower = prompt.toLowerCase();
-    for (const [skillId, skill] of Object.entries(aiPrompts.skills || {})) {
-        if (skill.keywords && skill.keywords.some(kw => promptLower.includes(kw))) {
-            return skillId;
-        }
-    }
-    return null;
+export function detectGenreFromPrompt(prompt: string): string | null {
+  return detectGenreFromKeywords(prompt, DEFAULT_GENRES);
 }
 
 /**
- * Detect skill/genre using AI
- * @param {string} prompt - User's prompt
- * @returns {Promise<string|null>} - Detected skill ID or null
+ * Detect genre using AI (with fallback to keywords)
  */
-export async function detectSkillWithAI(prompt) {
-    try {
-        const response = await websim.chat.completions.create({
-            messages: [{ role: "user", content: aiPrompts.detectSkill.replace('{{PROMPT}}', prompt) }]
-        });
-        const detectedSkill = response.content.trim().toLowerCase().replace(/['"]/g, '');
-        if (aiPrompts.skills && aiPrompts.skills[detectedSkill]) {
-            return detectedSkill;
-        }
-    } catch (e) {
-        console.warn('Could not detect skill with AI:', e);
-    }
-    return null;
+export async function detectGenreWithAI(prompt: string): Promise<string | null> {
+  return detectGenre(prompt, { genres: DEFAULT_GENRES, useAI: true });
 }
 
 /**
  * Generate creative brief using AI
- * @param {string} prompt - User's prompt
- * @returns {Promise<string|null>} - Creative brief or null
  */
-export async function generateCreativeBrief(prompt) {
-    try {
-        const response = await websim.chat.completions.create({
-            messages: [{ role: "user", content: aiPrompts.creativeBrief.replace('{{PROMPT}}', prompt) }]
-        });
-        return response.content.trim().replace(/^["']|["']$/g, '');
-    } catch (e) {
-        console.warn('Could not generate creative brief:', e);
-        return null;
-    }
+export async function generateCreativeBrief(prompt: string): Promise<string | null> {
+  return sharedGenerateBrief(prompt, { creativeBrief: aiPrompts.creativeBrief } as AIPromptsConfig);
 }
 
 /**
  * Build keyboard range description for AI prompt
- * @param {object} state - Current state with numKeys, rootKey, rootOctave
- * @returns {string} - Keyboard description text
+ * @param state - Current state with numKeys, rootKey, rootOctave
+ * @returns Keyboard description text
  */
-export function buildKeyboardDescription(state) {
-    const numKeys = state.numKeys || 12;
-    const rootKey = state.rootKey ?? 0;
-    const rootOctave = state.rootOctave ?? 3;
-    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+export function buildKeyboardDescription(state: CurrentState): string {
+  const numKeys = state.numKeys || 12;
+  const rootKey = state.rootKey ?? 0;
+  const rootOctave = state.rootOctave ?? 3;
+  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
-    if (numKeys <= 24) {
-        // Small keyboard - relative to root
-        const rootNoteName = noteNames[rootKey];
-        const lowNote = `${rootNoteName}${rootOctave}`;
-        const highOctave = rootOctave + Math.floor((numKeys - 1) / 12);
-        const highNoteIdx = (rootKey + numKeys - 1) % 12;
-        const highNote = `${noteNames[highNoteIdx]}${highOctave}`;
-        return `
+  if (numKeys <= 24) {
+    // Small keyboard - relative to root
+    const rootNoteName = noteNames[rootKey];
+    const lowNote = `${rootNoteName}${rootOctave}`;
+    const highOctave = rootOctave + Math.floor((numKeys - 1) / 12);
+    const highNoteIdx = (rootKey + numKeys - 1) % 12;
+    const highNote = `${noteNames[highNoteIdx]}${highOctave}`;
+    return `
 CURRENT KEYBOARD: ${numKeys} keys, root ${rootNoteName} at octave ${rootOctave}
 - Index 0 = ${lowNote} (lowest note)
 - Index ${numKeys - 1} = ${highNote} (highest note)
@@ -131,9 +150,9 @@ NOTE RANGE GUIDE for ${numKeys}-key keyboard:
 - High notes: indices ${Math.floor(numKeys * 2 / 3)}-${numKeys - 1} (arpeggios, sparkle)
 
 IMPORTANT: All note indices MUST be between 0 and ${numKeys - 1}. Using indices outside this range will cause errors!`;
-    } else {
-        // Large keyboard - absolute positioning
-        return `
+  } else {
+    // Large keyboard - absolute positioning
+    return `
 CURRENT KEYBOARD: ${numKeys} keys (standard piano layout starting at A0)
 - Index 0 = A0, Index 3 = C1, Index 15 = C2, Index 27 = C3, Index 39 = C4 (middle C)
 - For a typical synth track, use indices around 27-51 (C3-C5 range)
@@ -145,24 +164,24 @@ NOTE RANGE GUIDE for ${numKeys}-key keyboard:
 - High: indices 51-63 (C5-C6)
 
 IMPORTANT: All note indices MUST be between 0 and ${numKeys - 1}. Using indices outside this range will cause errors!`;
-    }
+  }
 }
 
 /**
  * Build target mode instruction for AI prompt
- * @param {string} targetMode - 'PATTERN' or 'TRACK'
- * @param {object} state - Current state
- * @returns {string} - Target mode instruction text
+ * @param targetMode - 'PATTERN' or 'TRACK'
+ * @param state - Current state
+ * @returns Target mode instruction text
  */
-export function buildTargetModeInstruction(targetMode, state) {
-    if (targetMode === 'PATTERN') {
-        return `TARGET MODE: PATTERN - Create a single loop using the CURRENT settings.
+export function buildTargetModeInstruction(targetMode: string, state: CurrentState): string {
+  if (targetMode === 'PATTERN') {
+    return `TARGET MODE: PATTERN - Create a single loop using the CURRENT settings.
 - Keep steps at ${state.steps} (do not change)
 - Keep numKeys at ${state.numKeys} (do not change)
 - Create all 4 patterns to work together as a cohesive loop
 - Focus on a tight, instantly usable groove`;
-    } else {
-        return `TARGET MODE: TRACK - Create a FULL composition using ALL available space.
+  } else {
+    return `TARGET MODE: TRACK - Create a FULL composition using ALL available space.
 - The canvas has ${state.steps} steps (${state.steps / 16} bars) and ${state.numKeys} keys - USE ALL OF IT
 - You MUST fill ALL ${state.steps} steps with musical content (no empty sections)
 - You MUST use ALL 4 patterns: Pattern 0=Bass, Pattern 1=Lead, Pattern 2=Pads, Pattern 3=Arps
@@ -170,27 +189,27 @@ export function buildTargetModeInstruction(targetMode, state) {
 - Create variation and progression across all ${state.steps / 16} bars
 - Use the full note range: bass (indices 15-30), leads (39-55), pads (30-50), arps (50-70)
 - CRITICAL: Do not leave patterns empty or short - fill the entire ${state.steps} steps for ALL 4 patterns`;
-    }
+  }
 }
 
 /**
  * Build the complete system prompt for AI generation
- * @param {object} options - Options for building the prompt
- * @returns {string} - Complete system prompt
+ * @param options - Options for building the prompt
+ * @returns Complete system prompt
  */
-export function buildSystemPrompt(options) {
-    const { targetMode, state, skill, prompt } = options;
+export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
+  const { targetMode, state, skill, prompt } = options;
 
-    const targetModeInstruction = buildTargetModeInstruction(targetMode, state);
-    const keyboardDescription = buildKeyboardDescription(state);
+  const targetModeInstruction = buildTargetModeInstruction(targetMode, state);
+  const keyboardDescription = buildKeyboardDescription(state);
 
-    // Add skill-specific augmentation
-    let skillAugment = '';
-    if (skill && aiPrompts.skills?.[skill]?.augment) {
-        skillAugment = `\n\nGENRE GUIDANCE:\n${aiPrompts.skills[skill].augment}`;
-    }
+  // Add genre-specific augmentation
+  let genreAugment = '';
+  if (skill && aiPrompts.genreAugments?.[skill]) {
+    genreAugment = `\n\nGENRE GUIDANCE:\n${aiPrompts.genreAugments[skill]}`;
+  }
 
-    return `You are a synth sound designer and music producer with deep knowledge of music theory and composition.${skillAugment}
+  return `You are a synth sound designer and music producer with deep knowledge of music theory and composition.${genreAugment}
 
 Adjust the synth parameters and/or the tracker tracks based on the user's request.
 If no trackName in STATE, generate one: creative 2-4 word title capturing the vibe (e.g. 'Cyber Drift', 'Neon Cascade', 'Digital Sunset').
@@ -336,47 +355,19 @@ User request: "${prompt}"`;
 
 /**
  * Build thumbnail generation prompt
- * @param {object} options - Options for thumbnail
- * @returns {string} - Thumbnail prompt
  */
-export function buildThumbnailPrompt(options) {
-    const { title, description, aiPromptText, skill } = options;
-
-    // Build style from all available context
-    const parts = [title, description, aiPromptText].filter(Boolean);
-    const style = parts.length > 0 ? parts.join(' - ') : 'Electronic synth music';
-
-    // Get skill-specific artwork guidance
-    const skillArtwork = skill && aiPrompts.skills?.[skill]?.artwork
-        ? `Visual style: ${aiPrompts.skills[skill].artwork}`
-        : 'Abstract electronic music aesthetics, bold neon colors, geometric or organic shapes';
-
-    // Use template if available, otherwise fallback
-    if (aiPrompts.thumbnail?.template) {
-        return aiPrompts.thumbnail.template
-            .replace('{{SKILL_ARTWORK}}', skillArtwork)
-            .replace('{{STYLE}}', style);
-    } else {
-        const styleHints = aiPrompts.thumbnail?.styleHints || [];
-        const randomStyle = styleHints[Math.floor(Math.random() * styleHints.length)] || '';
-        return `${aiPrompts.thumbnail?.basePrompt || 'Create album art'}. ${skillArtwork}. ${style}. ${randomStyle}. ABSOLUTELY NO TEXT OR WORDS.`;
-    }
+export function buildThumbnailPrompt(options: BuildThumbnailOptions): string {
+  return sharedBuildThumbnail({
+    title: options.title,
+    description: options.description,
+    prompt: options.aiPromptText,
+    genre: options.skill
+  }, { thumbnail: aiPrompts.thumbnail, genres: DEFAULT_GENRES } as AIPromptsConfig);
 }
 
 /**
  * Generate improvement suggestion
- * @param {object} state - Current state
- * @returns {Promise<string|null>} - Suggested prompt or null
  */
-export async function generateSuggestion(state) {
-    try {
-        const suggestPrompt = aiPrompts.improve.replace('{{STATE}}', JSON.stringify(state));
-        const suggestion = await websim.chat.completions.create({
-            messages: [{ role: 'user', content: suggestPrompt }]
-        });
-        return suggestion.content.trim().replace(/['"]/g, '');
-    } catch (e) {
-        console.warn('Could not generate suggestion:', e);
-        return null;
-    }
+export async function generateSuggestion(state: CurrentState): Promise<string | null> {
+  return sharedGenerateSuggestion(state as unknown as Record<string, unknown>, { improve: aiPrompts.improve } as AIPromptsConfig);
 }

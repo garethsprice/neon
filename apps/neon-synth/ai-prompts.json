@@ -1,88 +1,37 @@
 {
-    "creativeBrief": "Based on this music direction: '{{PROMPT}}', write a vivid 2-3 sentence creative brief for a SYNTHESIZER track. Focus ONLY on synth elements: basslines, pads, leads, arpeggios, chord stabs, drones, textures. Describe synthesis techniques (analog warmth, FM brightness, wavetable movement), filter sweeps, envelope shapes, and harmonic content. DO NOT mention drums, beats, hi-hats, kicks, percussion, or rhythm section - this is a synth-only instrument. Be evocative about timbres, textures, and emotional qualities. Reply with ONLY the brief text, no quotes or labels.",
-    "detectSkill": "Analyze this music prompt and identify the most appropriate genre/skill from this list: synthwave, ambient, techno, house, trance, chillwave, darksynth, vaporwave, idm, cinematic. Consider style keywords, tempo implications, and production aesthetics. Prompt: '{{PROMPT}}'\nReply with ONLY the skill name (one word, lowercase), no explanation.",
-    "skills": {
-        "synthwave": {
-            "name": "Synthwave",
-            "keywords": ["synthwave", "retrowave", "outrun", "80s", "retro", "neon", "miami", "drive"],
-            "augment": "SYNTHWAVE STYLE (80-120 BPM): Use arpeggiated patterns on Track 3 with sawtooth, high delay. Fat bass on Track 0 with square wave, low filterCutoff (~800Hz). Lush pads on Track 2 with triangle/sine, long attack (0.5s+), heavy reverb (0.6+). Lead melodies on Track 1 with sawtooth, medium-high notes. Classic 80s sound: detune for thickness, reverb for space.",
-            "artwork": "Neon grids, sunset gradients, palm trees, sports cars, retro-futuristic cityscapes, chrome and pink, VHS aesthetics"
-        },
-        "ambient": {
-            "name": "Ambient",
-            "keywords": ["ambient", "atmospheric", "drone", "ethereal", "meditative", "peaceful", "floating", "space"],
-            "augment": "AMBIENT STYLE (60-90 BPM or slower): Focus on texture over rhythm. Track 2 for evolving pads: sine/triangle, very long attack (2-4s), sustain 1.0, long release (2-4s), heavy reverb (0.7+). Track 0 for deep drones: low notes, very long durations (8-16 steps). Sparse melody on Track 1 if any. Filter cutoff low (~500-1500Hz) for warmth. Avoid busy patterns.",
-            "artwork": "Ethereal cloudscapes, soft gradients, minimalist shapes, fog and mist, serene landscapes, muted colors, vast empty spaces"
-        },
-        "techno": {
-            "name": "Techno",
-            "keywords": ["techno", "minimal", "industrial", "berlin", "warehouse", "driving", "hypnotic", "dark"],
-            "augment": "TECHNO STYLE (125-140 BPM): Hypnotic, repetitive patterns. Track 0 bass: square wave, punchy short notes (duration 1-2), low filterCutoff (~400-800Hz). Track 1 for stabs: sawtooth, short attack, mid-range notes. Track 3 for hi-hat-like arpeggios: high notes, duration 1, triangle wave. Minimal melodies. Use filter automation mentally - vary cutoff values. Dark and driving.",
-            "artwork": "Industrial decay, brutalist architecture, monochrome with electric blue, geometric grids, underground aesthetics"
-        },
-        "house": {
-            "name": "House",
-            "keywords": ["house", "deep", "funky", "chicago", "disco", "soulful", "jackin"],
-            "augment": "HOUSE STYLE (118-128 BPM): Groovy and warm. Track 0 bass: sawtooth, medium-low notes, duration 2-4, slight detune. Track 1 for chord stabs: mid-range notes, short duration (1-2). Track 2 for warm pads: sine, sustain high. Track 3 for funky arpeggios. Keep it groovy - off-beat patterns work well. Reverb for space but keep it tight.",
-            "artwork": "Warm sunset colors, disco balls, Chicago skyline, vinyl records, neon club lights, purple and orange gradients"
-        },
-        "trance": {
-            "name": "Trance",
-            "keywords": ["trance", "uplifting", "euphoric", "progressive", "epic", "anthem", "emotional"],
-            "augment": "TRANCE STYLE (136-145 BPM): Euphoric and driving. Track 3 for signature arpeggios: sawtooth, duration 1, mid-high notes, moderate delay. Track 0 bass: punchy, duration 2. Track 1 for supersaw-style leads: sawtooth with heavy detune (50-100), mid-high notes. Track 2 for emotional pads: long attack, high reverb. Build energy through the pattern.",
-            "artwork": "Cosmic nebulas, sunrise over ocean, ethereal light rays, aurora borealis colors, transcendent landscapes"
-        },
-        "chillwave": {
-            "name": "Chillwave",
-            "keywords": ["chillwave", "lofi", "lo-fi", "chill", "dreamy", "nostalgic", "hazy", "summer"],
-            "augment": "CHILLWAVE STYLE (80-110 BPM): Hazy and nostalgic. All tracks: lower filterCutoff (~1000-3000Hz) for warmth. Track 2 pads: triangle/sine, long attack, heavy reverb (0.6+). Track 1 melodies: simple, dreamy, mid-range. Track 0 bass: soft, sine wave, subtle. Add saturationDrive (30-50) for tape warmth. Relaxed, sun-drenched vibes.",
-            "artwork": "Faded polaroids, beach sunsets, VHS grain, pastel colors, nostalgic summer imagery, soft focus"
-        },
-        "darksynth": {
-            "name": "Darksynth",
-            "keywords": ["darksynth", "horror", "dark", "aggressive", "cyberpunk", "blade runner", "sinister"],
-            "augment": "DARKSYNTH STYLE (100-140 BPM): Aggressive and cinematic. Track 0 bass: heavy, sawtooth/square, low filterCutoff, saturationDrive 60+. Track 1 leads: harsh sawtooth, some detune. Track 2 for dark pads: minor feel, long sustain. Track 3 for aggressive arpeggios. Use saturation for grit. Lower notes for menace. Build tension.",
-            "artwork": "Cyberpunk cityscapes, rain and neon, dark alleys, red and black, dystopian imagery, sharp angles"
-        },
-        "vaporwave": {
-            "name": "Vaporwave",
-            "keywords": ["vaporwave", "vapor", "aesthetic", "mall", "corporate", "surreal", "90s"],
-            "augment": "VAPORWAVE STYLE (60-100 BPM, often slow): Surreal and nostalgic. Heavy reverb on everything (0.7+). Track 2 for lush pads: long durations, sine/triangle. Track 1 for simple melodies: mid-range, sparse. Track 0 bass: subtle, soft. Think slowed-down muzak. Lower filterCutoff for muffled, lo-fi feel. Dreamy and detached.",
-            "artwork": "Greek statues, palm trees, pink and teal, Windows 95, mall aesthetics, dolphins, Japanese text, marble"
-        },
-        "idm": {
-            "name": "IDM",
-            "keywords": ["idm", "glitch", "experimental", "complex", "aphex", "autechre", "intelligent"],
-            "augment": "IDM STYLE (variable tempo): Complex and experimental. Irregular rhythmic patterns across all tracks. Unexpected note placements. Track 3 for glitchy arpeggios: varying durations. Track 1 for abstract melodies: unusual intervals. Mix waveforms freely. Experiment with extreme parameter values. Sound design focus over traditional structure.",
-            "artwork": "Abstract data visualization, glitch artifacts, mathematical patterns, alien landscapes, cerebral imagery"
-        },
-        "cinematic": {
-            "name": "Cinematic",
-            "keywords": ["cinematic", "epic", "orchestral", "film", "soundtrack", "dramatic", "score", "trailer"],
-            "augment": "CINEMATIC STYLE (variable tempo): Epic and emotional. Track 2 for sweeping pads: very long attack (1-3s), full sustain, high reverb (0.7+), wide range of notes. Track 0 for deep bass swells: long durations. Track 1 for melodic themes: expressive, varying durations. Track 3 for textural arpeggios. Build drama through dynamics. Think film score.",
-            "artwork": "Epic landscapes, dramatic lighting, silhouettes, golden hour, storm clouds, vast scale, monumental"
-        }
-    },
-    "improve": "Analyze this synth track state and suggest ONE specific improvement as a short prompt (4-8 words). Focus on SYNTH elements only: basslines, pads, leads, arpeggios, chord stabs. Consider: missing synth layers (needs bass? add pads? lead melody?), timbral polish (add reverb? filter sweep? more detune?), arrangement (needs breakdown? build tension?). DO NOT suggest drums, beats, or percussion. STATE: {{STATE}}\nReply with ONLY the improvement prompt, no quotes or explanation.",
-    "thumbnail": {
-        "basePrompt": "Create striking album artwork for an electronic synth track",
-        "template": "Create striking album artwork. {{SKILL_ARTWORK}}. The art must capture the energy and aesthetic of the music. ABSOLUTELY NO TEXT, LETTERS, WORDS, OR NUMBERS. Pure visual art only. Style: {{STYLE}}",
-        "styleHints": [
-            "Retro synthwave aesthetic with neon grid landscapes and sunset gradients",
-            "Dark cyberpunk cityscape with rain and holographic billboards",
-            "Abstract geometric shapes with glowing neon outlines",
-            "Futuristic space scene with nebulae and starfields",
-            "Glitchy digital art with scan lines and chromatic aberration",
-            "Minimalist design with bold typography and stark contrast",
-            "Psychedelic vaporwave with marble statues and palm trees",
-            "Industrial tech aesthetic with circuit boards and wires",
-            "Ethereal dreamscape with floating geometric crystals",
-            "Neon-lit Japanese street scene with kanji signs",
-            "Abstract sound wave visualization with particle effects",
-            "Retro computer terminal aesthetic with green phosphor glow",
-            "Cosmic horror atmosphere with impossible geometry",
-            "Chrome and glass futuristic architecture",
-            "Bioluminescent organic patterns and flowing forms"
-        ]
-    }
+  "creativeBrief": "Based on this music direction: '{{PROMPT}}', write a vivid 2-3 sentence creative brief for a SYNTHESIZER track. Focus ONLY on synth elements: basslines, pads, leads, arpeggios, chord stabs, drones, textures. Describe synthesis techniques (analog warmth, FM brightness, wavetable movement), filter sweeps, envelope shapes, and harmonic content. DO NOT mention drums, beats, hi-hats, kicks, percussion, or rhythm section - this is a synth-only instrument. Be evocative about timbres, textures, and emotional qualities. Reply with ONLY the brief text, no quotes or labels.",
+  "genreAugments": {
+    "synthwave": "SYNTHWAVE STYLE (80-120 BPM): Use arpeggiated patterns on Track 3 with sawtooth, high delay. Fat bass on Track 0 with square wave, low filterCutoff (~800Hz). Lush pads on Track 2 with triangle/sine, long attack (0.5s+), heavy reverb (0.6+). Lead melodies on Track 1 with sawtooth, medium-high notes. Classic 80s sound: detune for thickness, reverb for space.",
+    "ambient": "AMBIENT STYLE (60-90 BPM or slower): Focus on texture over rhythm. Track 2 for evolving pads: sine/triangle, very long attack (2-4s), sustain 1.0, long release (2-4s), heavy reverb (0.7+). Track 0 for deep drones: low notes, very long durations (8-16 steps). Sparse melody on Track 1 if any. Filter cutoff low (~500-1500Hz) for warmth. Avoid busy patterns.",
+    "techno": "TECHNO STYLE (125-140 BPM): Hypnotic, repetitive patterns. Track 0 bass: square wave, punchy short notes (duration 1-2), low filterCutoff (~400-800Hz). Track 1 for stabs: sawtooth, short attack, mid-range notes. Track 3 for hi-hat-like arpeggios: high notes, duration 1, triangle wave. Minimal melodies. Use filter automation mentally - vary cutoff values. Dark and driving.",
+    "house": "HOUSE STYLE (118-128 BPM): Groovy and warm. Track 0 bass: sawtooth, medium-low notes, duration 2-4, slight detune. Track 1 for chord stabs: mid-range notes, short duration (1-2). Track 2 for warm pads: sine, sustain high. Track 3 for funky arpeggios. Keep it groovy - off-beat patterns work well. Reverb for space but keep it tight.",
+    "trance": "TRANCE STYLE (136-145 BPM): Euphoric and driving. Track 3 for signature arpeggios: sawtooth, duration 1, mid-high notes, moderate delay. Track 0 bass: punchy, duration 2. Track 1 for supersaw-style leads: sawtooth with heavy detune (50-100), mid-high notes. Track 2 for emotional pads: long attack, high reverb. Build energy through the pattern.",
+    "chillwave": "CHILLWAVE STYLE (80-110 BPM): Hazy and nostalgic. All tracks: lower filterCutoff (~1000-3000Hz) for warmth. Track 2 pads: triangle/sine, long attack, heavy reverb (0.6+). Track 1 melodies: simple, dreamy, mid-range. Track 0 bass: soft, sine wave, subtle. Add saturationDrive (30-50) for tape warmth. Relaxed, sun-drenched vibes.",
+    "darksynth": "DARKSYNTH STYLE (100-140 BPM): Aggressive and cinematic. Track 0 bass: heavy, sawtooth/square, low filterCutoff, saturationDrive 60+. Track 1 leads: harsh sawtooth, some detune. Track 2 for dark pads: minor feel, long sustain. Track 3 for aggressive arpeggios. Use saturation for grit. Lower notes for menace. Build tension.",
+    "vaporwave": "VAPORWAVE STYLE (60-100 BPM, often slow): Surreal and nostalgic. Heavy reverb on everything (0.7+). Track 2 for lush pads: long durations, sine/triangle. Track 1 for simple melodies: mid-range, sparse. Track 0 bass: subtle, soft. Think slowed-down muzak. Lower filterCutoff for muffled, lo-fi feel. Dreamy and detached.",
+    "experimental": "IDM STYLE (variable tempo): Complex and experimental. Irregular rhythmic patterns across all tracks. Unexpected note placements. Track 3 for glitchy arpeggios: varying durations. Track 1 for abstract melodies: unusual intervals. Mix waveforms freely. Experiment with extreme parameter values. Sound design focus over traditional structure.",
+    "cinematic": "CINEMATIC STYLE (variable tempo): Epic and emotional. Track 2 for sweeping pads: very long attack (1-3s), full sustain, high reverb (0.7+), wide range of notes. Track 0 for deep bass swells: long durations. Track 1 for melodic themes: expressive, varying durations. Track 3 for textural arpeggios. Build drama through dynamics. Think film score."
+  },
+  "improve": "Analyze this synth track state and suggest ONE specific improvement as a short prompt (4-8 words). Focus on SYNTH elements only: basslines, pads, leads, arpeggios, chord stabs. Consider: missing synth layers (needs bass? add pads? lead melody?), timbral polish (add reverb? filter sweep? more detune?), arrangement (needs breakdown? build tension?). DO NOT suggest drums, beats, or percussion. STATE: {{STATE}}\nReply with ONLY the improvement prompt, no quotes or explanation.",
+  "thumbnail": {
+    "basePrompt": "Create striking album artwork for an electronic synth track",
+    "template": "Create striking album artwork. {{GENRE_ARTWORK}}. The art must capture the energy and aesthetic of the music. ABSOLUTELY NO TEXT, LETTERS, WORDS, OR NUMBERS. Pure visual art only. Style: {{STYLE}}",
+    "styleHints": [
+      "Retro synthwave aesthetic with neon grid landscapes and sunset gradients",
+      "Dark cyberpunk cityscape with rain and holographic billboards",
+      "Abstract geometric shapes with glowing neon outlines",
+      "Futuristic space scene with nebulae and starfields",
+      "Glitchy digital art with scan lines and chromatic aberration",
+      "Minimalist design with bold typography and stark contrast",
+      "Psychedelic vaporwave with marble statues and palm trees",
+      "Industrial tech aesthetic with circuit boards and wires",
+      "Ethereal dreamscape with floating geometric crystals",
+      "Neon-lit Japanese street scene with kanji signs",
+      "Abstract sound wave visualization with particle effects",
+      "Retro computer terminal aesthetic with green phosphor glow",
+      "Cosmic horror atmosphere with impossible geometry",
+      "Chrome and glass futuristic architecture",
+      "Bioluminescent organic patterns and flowing forms"
+    ]
+  }
 }
