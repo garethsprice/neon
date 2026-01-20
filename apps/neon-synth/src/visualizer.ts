@@ -10,11 +10,20 @@ export class Visualizer {
   animationId: number | null = null;
   resizeHandler: () => void;
 
+  // Performance optimizations
+  private dataArray: Uint8Array<ArrayBuffer>;
+  private accentColor: string = '#00ffff';
+  private lastFrameTime: number = 0;
+  private readonly frameInterval: number = 1000 / 30; // Cap at 30fps
+
   constructor(canvas: HTMLCanvasElement, analyser: AnalyserNode) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.analyser = analyser;
     this.resizeHandler = () => this.resize();
+
+    // Pre-allocate buffer for audio data
+    this.dataArray = new Uint8Array(analyser.frequencyBinCount);
 
     this.init();
   }
@@ -24,21 +33,36 @@ export class Visualizer {
     this.resize();
     window.addEventListener('resize', this.resizeHandler);
 
+    // Cache accent color (update on resize in case of theme change)
+    this.updateAccentColor();
+
     // Start the draw loop
     this.start();
+  }
+
+  private updateAccentColor(): void {
+    const style = getComputedStyle(document.documentElement);
+    this.accentColor = style.getPropertyValue('--nc').trim() || '#00ffff';
   }
 
   resize(): void {
     this.canvas.width = this.canvas.clientWidth * window.devicePixelRatio;
     this.canvas.height = this.canvas.clientHeight * window.devicePixelRatio;
+    this.updateAccentColor();
   }
 
   start(): void {
-    const draw = (): void => {
+    const draw = (timestamp: number): void => {
       this.animationId = requestAnimationFrame(draw);
+
+      // Throttle to 30fps
+      const elapsed = timestamp - this.lastFrameTime;
+      if (elapsed < this.frameInterval) return;
+      this.lastFrameTime = timestamp - (elapsed % this.frameInterval);
+
       this.draw();
     };
-    draw();
+    requestAnimationFrame(draw);
   }
 
   stop(): void {
@@ -49,47 +73,42 @@ export class Visualizer {
   }
 
   draw(): void {
-    const bufferLength = this.analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    this.analyser.getByteTimeDomainData(dataArray);
+    // Reuse pre-allocated buffer
+    this.analyser.getByteTimeDomainData(this.dataArray);
 
     const width = this.canvas.width;
     const height = this.canvas.height;
-
-    // Get accent color from CSS variables
-    const style = getComputedStyle(document.documentElement);
-    const accentColor = style.getPropertyValue('--nc').trim() || '#00ffff';
+    const bufferLength = this.dataArray.length;
+    const ctx = this.ctx;
 
     // Clear background
-    this.ctx.fillStyle = '#0a0014';
-    this.ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#0a0014';
+    ctx.fillRect(0, 0, width, height);
 
-    // Draw waveform
-    this.ctx.lineWidth = 2;
-    this.ctx.strokeStyle = accentColor;
-    this.ctx.shadowColor = accentColor;
-    this.ctx.shadowBlur = 10;
-    this.ctx.beginPath();
+    // Draw waveform (no shadow for performance)
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = this.accentColor;
+    ctx.beginPath();
 
     const sliceWidth = width / bufferLength;
+    const halfHeight = height / 2;
     let x = 0;
 
     for (let i = 0; i < bufferLength; i++) {
-      const v = dataArray[i] / 128.0;
-      const y = v * height / 2;
+      const v = this.dataArray[i] / 128.0;
+      const y = v * halfHeight;
 
       if (i === 0) {
-        this.ctx.moveTo(x, y);
+        ctx.moveTo(x, y);
       } else {
-        this.ctx.lineTo(x, y);
+        ctx.lineTo(x, y);
       }
 
       x += sliceWidth;
     }
 
-    this.ctx.lineTo(width, height / 2);
-    this.ctx.stroke();
-    this.ctx.shadowBlur = 0;
+    ctx.lineTo(width, halfHeight);
+    ctx.stroke();
   }
 
   destroy(): void {

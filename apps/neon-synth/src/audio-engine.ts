@@ -1,5 +1,11 @@
 /**
- * AudioEngine - Synth audio engine with oscillators and FX chains
+ * AudioEngine - Optimized synth audio engine with shared effects
+ *
+ * Performance optimizations:
+ * - Shared reverb/delay send buses (1 each instead of 8)
+ * - Minimal per-track chain (osc → env → filter → pan → output)
+ * - Lazy effect instantiation (only create when enabled)
+ * - Playback latency hint for better buffering
  */
 
 import {
@@ -12,7 +18,6 @@ import {
   Distortion,
   Bitcrusher,
   StereoPanner,
-  SpatialPanner,
   Phaser,
   Flanger,
   Delay,
@@ -44,17 +49,14 @@ export interface TrackParams {
   bitcrusherDownsample: number;
   panEnabled: boolean;
   panPosition: number;
-  // Phaser
   phaserEnabled: boolean;
   phaserRate: number;
   phaserDepth: number;
   phaserMix: number;
-  // Flanger
   flangerEnabled: boolean;
   flangerRate: number;
   flangerDepth: number;
   flangerMix: number;
-  // Spatial 3D
   spatialEnabled: boolean;
   spatialX: number;
   spatialY: number;
@@ -67,46 +69,56 @@ export interface GlobalParams {
   bpm: number;
 }
 
+// Minimal per-track chain - only essential nodes
 interface TrackChain {
   oscillator: Oscillator;
   envelope: Envelope;
-  lpFilter: LowpassFilter;
   hpFilter: HighpassFilter;
-  saturation: Saturation;
-  distortion: Distortion;
-  bitcrusher: Bitcrusher;
-  phaser: Phaser;
-  flanger: Flanger;
+  lpFilter: LowpassFilter;
   panner: StereoPanner;
-  spatialPanner: SpatialPanner;
-  delay: Delay;
-  reverb: Reverb;
   output: GainNode;
+  delaySend: GainNode;
+  reverbSend: GainNode;
+  // Optional effects - only created when enabled
+  saturation?: Saturation;
+  distortion?: Distortion;
+  bitcrusher?: Bitcrusher;
+  phaser?: Phaser;
+  flanger?: Flanger;
 }
 
 export class AudioEngine {
   ctx: AudioContext;
   masterGain: GainNode;
   analyser: AnalyserNode;
-  masterFilter: LowpassFilter;
   masterCompressor: Compressor;
   masterLimiter: Limiter;
+
+  // Shared send effects (huge CPU savings)
+  sharedDelay: Delay;
+  sharedReverb: Reverb;
+  delayBus: GainNode;
+  reverbBus: GainNode;
+
   trackChains: Map<number, TrackChain>;
   globalParams: GlobalParams;
   trackParams: TrackParams[];
   private noteTrackMap: Map<number, number> = new Map();
 
   constructor() {
-    this.ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    // Use 'playback' latency hint for more buffer room (reduces crackling)
+    this.ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)({
+      latencyHint: 'playback'
+    });
+
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 0.5;
 
-    // Visualizer setup
+    // Visualizer setup - smaller FFT for performance
     this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = 256;
+    this.analyser.fftSize = 128; // Reduced from 256
 
-    // Master effects chain using neon-fx
-    this.masterFilter = new LowpassFilter(this.ctx, { cutoff: 20000, resonance: 0 });
+    // Master effects chain
     this.masterCompressor = new Compressor(this.ctx, {
       threshold: -12,
       ratio: 4,
@@ -117,12 +129,41 @@ export class AudioEngine {
     });
     this.masterLimiter = new Limiter(this.ctx, { threshold: -1, release: 50 });
 
+    // Shared send effect buses
+    this.delayBus = this.ctx.createGain();
+    this.reverbBus = this.ctx.createGain();
+
+    // Single shared delay for all tracks
+    this.sharedDelay = new Delay(this.ctx, {
+      time: 300,
+      feedback: 40,
+      mix: 100, // Full wet - dry/wet controlled by send amount
+      damping: 20
+    });
+
+    // Single shared reverb for all tracks
+    this.sharedReverb = new Reverb(this.ctx, {
+      mix: 100, // Full wet - dry/wet controlled by send amount
+      decay: 2.0,
+      damping: 50,
+      preDelay: 10
+    });
+
     // Per-track effect chains
     this.trackChains = new Map();
 
-    // Route: masterGain -> masterFilter -> masterCompressor -> masterLimiter -> analyser -> destination
-    this.masterGain.connect(this.masterFilter.input);
-    this.masterFilter.connect(this.masterCompressor);
+    // Routing:
+    // tracks -> masterGain -> masterCompressor -> masterLimiter -> analyser -> destination
+    // tracks -> delaySend -> delayBus -> sharedDelay -> masterGain
+    // tracks -> reverbSend -> reverbBus -> sharedReverb -> masterGain
+
+    this.delayBus.connect(this.sharedDelay.input);
+    this.sharedDelay.output.connect(this.masterGain);
+
+    this.reverbBus.connect(this.sharedReverb.input);
+    this.sharedReverb.output.connect(this.masterGain);
+
+    this.masterGain.connect(this.masterCompressor.input);
     this.masterCompressor.connect(this.masterLimiter);
     this.masterLimiter.output.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
@@ -134,9 +175,7 @@ export class AudioEngine {
     };
 
     // Per-track Parameters (8 tracks)
-    // Default spatial positions spread across stereo field
     const defaultSpatialX = [-50, -30, 30, 50, -40, 40, -20, 20];
-    const defaultSpatialZ = [0, 0, 0, 0, -20, -20, -30, -30];
 
     this.trackParams = Array.from({ length: 8 }, (_, i) => ({
       waveType: 'sawtooth' as WaveformType,
@@ -150,8 +189,8 @@ export class AudioEngine {
       sustain: 0.5,
       release: 0.5,
       delayTime: 0.3,
-      delayMix: 0.2,
-      reverbMix: 0.3,
+      delayMix: 0,
+      reverbMix: 0,
       saturationDrive: 0,
       distortionEnabled: false,
       distortionDrive: 50,
@@ -161,24 +200,21 @@ export class AudioEngine {
       bitcrusherDownsample: 1,
       panEnabled: false,
       panPosition: 50,
-      // Phaser
       phaserEnabled: false,
       phaserRate: 0.5,
       phaserDepth: 70,
       phaserMix: 50,
-      // Flanger
       flangerEnabled: false,
       flangerRate: 0.3,
       flangerDepth: 70,
       flangerMix: 50,
-      // Spatial 3D - spread tracks across stereo field by default
       spatialEnabled: false,
       spatialX: defaultSpatialX[i],
       spatialY: 0,
-      spatialZ: defaultSpatialZ[i]
+      spatialZ: 0
     }));
 
-    // Initialize per-track effect chains (8 tracks)
+    // Initialize per-track chains (8 tracks)
     for (let i = 0; i < 8; i++) {
       this.setupTrackChain(i);
     }
@@ -187,13 +223,12 @@ export class AudioEngine {
   setupTrackChain(trackIdx: number): void {
     const params = this.trackParams[trackIdx];
 
-    // Create oscillator (pure waveform generator)
+    // Core synth chain - always created
     const oscillator = new Oscillator(this.ctx, {
       waveform: params.waveType,
       detune: params.detune
     });
 
-    // Create envelope (ADSR amplitude shaping)
     const envelope = new Envelope(this.ctx, {
       attack: params.attack,
       decay: params.decay,
@@ -201,117 +236,69 @@ export class AudioEngine {
       release: params.release
     });
 
-    // Create per-track effects using neon-fx plugins
-    const lpFilter = new LowpassFilter(this.ctx, {
-      cutoff: params.filterCutoff,
-      resonance: params.filterReso * 5
-    });
-
     const hpFilter = new HighpassFilter(this.ctx, {
       cutoff: params.hpFilterCutoff,
       resonance: params.hpFilterReso * 5
     });
 
-    const saturation = new Saturation(this.ctx, {
-      drive: params.saturationDrive || 0,
-      mix: 100
+    const lpFilter = new LowpassFilter(this.ctx, {
+      cutoff: params.filterCutoff,
+      resonance: params.filterReso * 5
     });
-    saturation.bypassed = true; // Off by default
 
-    const distortion = new Distortion(this.ctx, {
-      drive: params.distortionDrive,
-      tone: params.distortionTone,
-      mix: 100
-    });
-    distortion.bypassed = !params.distortionEnabled;
-
-    const bitcrusher = new Bitcrusher(this.ctx, {
-      bits: params.bitcrusherBits,
-      downsample: params.bitcrusherDownsample,
-      mix: 100
-    });
-    bitcrusher.bypassed = !params.bitcrusherEnabled;
-
-    // Modulation effects
-    const phaser = new Phaser(this.ctx, {
-      rate: params.phaserRate,
-      depth: params.phaserDepth,
-      mix: params.phaserMix
-    });
-    phaser.bypassed = !params.phaserEnabled;
-
-    const flanger = new Flanger(this.ctx, {
-      rate: params.flangerRate,
-      depth: params.flangerDepth,
-      mix: params.flangerMix
-    });
-    flanger.bypassed = !params.flangerEnabled;
-
-    // Panning
     const panner = new StereoPanner(this.ctx, {
-      pan: (params.panPosition - 50) * 2 // Convert 0-100 to -100 to 100
-    });
-    panner.bypassed = !params.panEnabled;
-
-    // Spatial 3D positioning
-    const spatialPanner = new SpatialPanner(this.ctx, {
-      positionX: params.spatialX,
-      positionY: params.spatialY,
-      positionZ: params.spatialZ,
-      panningModel: 'HRTF'
-    });
-    spatialPanner.bypassed = !params.spatialEnabled;
-
-    const delay = new Delay(this.ctx, {
-      time: params.delayTime * 1000, // Convert to ms
-      feedback: 40,
-      mix: params.delayMix * 100,
-      damping: 0
+      pan: (params.panPosition - 50) * 2
     });
 
-    const reverb = new Reverb(this.ctx, {
-      mix: params.reverbMix * 100,
-      decay: 2.0,
-      damping: 50,
-      preDelay: 10
-    });
-
-    // Output node
+    // Output and send nodes
     const output = this.ctx.createGain();
+    const delaySend = this.ctx.createGain();
+    const reverbSend = this.ctx.createGain();
 
-    // Routing: oscillator -> envelope -> hpFilter -> lpFilter -> saturation -> distortion -> bitcrusher -> phaser -> flanger -> panner -> spatialPanner -> delay -> reverb -> output
+    delaySend.gain.value = params.delayMix;
+    reverbSend.gain.value = params.reverbMix;
+
+    // Simple routing: osc -> env -> hp -> lp -> panner -> output
     oscillator.connect(envelope);
     envelope.connect(hpFilter);
     hpFilter.connect(lpFilter);
-    lpFilter.connect(saturation);
-    saturation.connect(distortion);
-    distortion.connect(bitcrusher);
-    bitcrusher.connect(phaser);
-    phaser.connect(flanger);
-    flanger.connect(panner);
-    panner.connect(spatialPanner);
-    spatialPanner.connect(delay);
-    delay.connect(reverb);
-    reverb.output.connect(output);
+    lpFilter.connect(panner);
+    panner.output.connect(output);
+
+    // Send routing (post-filter, pre-output)
+    panner.output.connect(delaySend);
+    panner.output.connect(reverbSend);
+    delaySend.connect(this.delayBus);
+    reverbSend.connect(this.reverbBus);
 
     output.connect(this.masterGain);
 
     this.trackChains.set(trackIdx, {
       oscillator,
       envelope,
-      lpFilter,
       hpFilter,
-      saturation,
-      distortion,
-      bitcrusher,
-      phaser,
-      flanger,
+      lpFilter,
       panner,
-      spatialPanner,
-      delay,
-      reverb,
-      output
+      output,
+      delaySend,
+      reverbSend
     });
+  }
+
+  // Lazy create optional effect and insert into chain
+  private ensureEffect<T>(
+    trackIdx: number,
+    effectKey: keyof TrackChain,
+    createFn: () => T
+  ): T {
+    const chain = this.trackChains.get(trackIdx);
+    if (!chain) throw new Error(`Track ${trackIdx} not found`);
+
+    if (!chain[effectKey]) {
+      const effect = createFn();
+      (chain as unknown as Record<string, unknown>)[effectKey] = effect;
+    }
+    return chain[effectKey] as T;
   }
 
   async resume(): Promise<void> {
@@ -339,7 +326,7 @@ export class AudioEngine {
     if (p && chain) {
       (p as Record<string, unknown>)[name] = value;
 
-      // Update oscillator parameters
+      // Oscillator
       if (name === 'waveType') {
         chain.oscillator.waveform = value as WaveformType;
       }
@@ -347,21 +334,13 @@ export class AudioEngine {
         chain.oscillator.detune = value as number;
       }
 
-      // Update envelope parameters
-      if (name === 'attack') {
-        chain.envelope.attack = value as number;
-      }
-      if (name === 'decay') {
-        chain.envelope.decay = value as number;
-      }
-      if (name === 'sustain') {
-        chain.envelope.sustain = value as number;
-      }
-      if (name === 'release') {
-        chain.envelope.release = value as number;
-      }
+      // Envelope
+      if (name === 'attack') chain.envelope.attack = value as number;
+      if (name === 'decay') chain.envelope.decay = value as number;
+      if (name === 'sustain') chain.envelope.sustain = value as number;
+      if (name === 'release') chain.envelope.release = value as number;
 
-      // Update neon-fx effect plugins
+      // Filters
       if (name === 'filterCutoff') {
         chain.lpFilter.setParam('cutoff', value as number, rampTime);
       }
@@ -374,91 +353,163 @@ export class AudioEngine {
       if (name === 'hpFilterReso') {
         chain.hpFilter.setParam('resonance', (value as number) * 5, rampTime);
       }
-      if (name === 'delayTime') {
-        chain.delay.setParam('time', (value as number) * 1000, rampTime); // Convert to ms
-      }
+
+      // Send effects (just adjust send amount - shared effects)
       if (name === 'delayMix') {
-        chain.delay.setParam('mix', (value as number) * 100, rampTime);
+        chain.delaySend.gain.setTargetAtTime(value as number, this.ctx.currentTime, rampTime);
+      }
+      if (name === 'delayTime') {
+        this.sharedDelay.setParam('time', (value as number) * 1000, rampTime);
       }
       if (name === 'reverbMix') {
-        chain.reverb.setParam('mix', (value as number) * 100, rampTime);
+        chain.reverbSend.gain.setTargetAtTime(value as number, this.ctx.currentTime, rampTime);
       }
-      if (name === 'saturationDrive') {
-        if ((value as number) > 0) {
-          chain.saturation.setParam('drive', value as number, rampTime);
-          chain.saturation.bypassed = false;
-        } else {
-          chain.saturation.bypassed = true;
-        }
-      }
-      // Distortion
-      if (name === 'distortionEnabled') {
-        chain.distortion.bypassed = !(value as boolean);
-      }
-      if (name === 'distortionDrive') {
-        chain.distortion.setParam('drive', value as number, rampTime);
-      }
-      if (name === 'distortionTone') {
-        chain.distortion.setParam('tone', value as number, rampTime);
-      }
-      // Bitcrusher
-      if (name === 'bitcrusherEnabled') {
-        chain.bitcrusher.bypassed = !(value as boolean);
-      }
-      if (name === 'bitcrusherBits') {
-        chain.bitcrusher.setParam('bits', value as number, rampTime);
-      }
-      if (name === 'bitcrusherDownsample') {
-        chain.bitcrusher.setParam('downsample', value as number, rampTime);
-      }
+
       // Panner
       if (name === 'panEnabled') {
         chain.panner.bypassed = !(value as boolean);
       }
       if (name === 'panPosition') {
-        // Convert 0-100 to -100 to 100
         chain.panner.setParam('pan', ((value as number) - 50) * 2, rampTime);
       }
-      // Phaser
-      if (name === 'phaserEnabled') {
-        chain.phaser.bypassed = !(value as boolean);
+
+      // Saturation - lazy create
+      if (name === 'saturationDrive') {
+        if ((value as number) > 0) {
+          const sat = this.ensureEffect(trackIdx, 'saturation', () => {
+            const s = new Saturation(this.ctx, { drive: value as number, mix: 100 });
+            this.insertEffectAfterFilter(trackIdx, s);
+            return s;
+          });
+          sat.setParam('drive', value as number, rampTime);
+          sat.bypassed = false;
+        } else if (chain.saturation) {
+          chain.saturation.bypassed = true;
+        }
       }
-      if (name === 'phaserRate') {
+
+      // Distortion - lazy create
+      if (name === 'distortionEnabled') {
+        if (value as boolean) {
+          const dist = this.ensureEffect(trackIdx, 'distortion', () => {
+            const d = new Distortion(this.ctx, {
+              drive: p.distortionDrive,
+              tone: p.distortionTone,
+              mix: 100
+            });
+            this.insertEffectAfterFilter(trackIdx, d);
+            return d;
+          });
+          dist.bypassed = false;
+        } else if (chain.distortion) {
+          chain.distortion.bypassed = true;
+        }
+      }
+      if (name === 'distortionDrive' && chain.distortion) {
+        chain.distortion.setParam('drive', value as number, rampTime);
+      }
+      if (name === 'distortionTone' && chain.distortion) {
+        chain.distortion.setParam('tone', value as number, rampTime);
+      }
+
+      // Bitcrusher - lazy create
+      if (name === 'bitcrusherEnabled') {
+        if (value as boolean) {
+          const bc = this.ensureEffect(trackIdx, 'bitcrusher', () => {
+            const b = new Bitcrusher(this.ctx, {
+              bits: p.bitcrusherBits,
+              downsample: p.bitcrusherDownsample,
+              mix: 100
+            });
+            this.insertEffectAfterFilter(trackIdx, b);
+            return b;
+          });
+          bc.bypassed = false;
+        } else if (chain.bitcrusher) {
+          chain.bitcrusher.bypassed = true;
+        }
+      }
+      if (name === 'bitcrusherBits' && chain.bitcrusher) {
+        chain.bitcrusher.setParam('bits', value as number, rampTime);
+      }
+      if (name === 'bitcrusherDownsample' && chain.bitcrusher) {
+        chain.bitcrusher.setParam('downsample', value as number, rampTime);
+      }
+
+      // Phaser - lazy create
+      if (name === 'phaserEnabled') {
+        if (value as boolean) {
+          const ph = this.ensureEffect(trackIdx, 'phaser', () => {
+            const phaser = new Phaser(this.ctx, {
+              rate: p.phaserRate,
+              depth: p.phaserDepth,
+              mix: p.phaserMix
+            });
+            this.insertEffectAfterFilter(trackIdx, phaser);
+            return phaser;
+          });
+          ph.bypassed = false;
+        } else if (chain.phaser) {
+          chain.phaser.bypassed = true;
+        }
+      }
+      if (name === 'phaserRate' && chain.phaser) {
         chain.phaser.setParam('rate', value as number, rampTime);
       }
-      if (name === 'phaserDepth') {
+      if (name === 'phaserDepth' && chain.phaser) {
         chain.phaser.setParam('depth', value as number, rampTime);
       }
-      if (name === 'phaserMix') {
+      if (name === 'phaserMix' && chain.phaser) {
         chain.phaser.setParam('mix', value as number, rampTime);
       }
-      // Flanger
+
+      // Flanger - lazy create
       if (name === 'flangerEnabled') {
-        chain.flanger.bypassed = !(value as boolean);
+        if (value as boolean) {
+          const fl = this.ensureEffect(trackIdx, 'flanger', () => {
+            const flanger = new Flanger(this.ctx, {
+              rate: p.flangerRate,
+              depth: p.flangerDepth,
+              mix: p.flangerMix
+            });
+            this.insertEffectAfterFilter(trackIdx, flanger);
+            return flanger;
+          });
+          fl.bypassed = false;
+        } else if (chain.flanger) {
+          chain.flanger.bypassed = true;
+        }
       }
-      if (name === 'flangerRate') {
+      if (name === 'flangerRate' && chain.flanger) {
         chain.flanger.setParam('rate', value as number, rampTime);
       }
-      if (name === 'flangerDepth') {
+      if (name === 'flangerDepth' && chain.flanger) {
         chain.flanger.setParam('depth', value as number, rampTime);
       }
-      if (name === 'flangerMix') {
+      if (name === 'flangerMix' && chain.flanger) {
         chain.flanger.setParam('mix', value as number, rampTime);
       }
-      // Spatial 3D
-      if (name === 'spatialEnabled') {
-        chain.spatialPanner.bypassed = !(value as boolean);
-      }
-      if (name === 'spatialX') {
-        chain.spatialPanner.setParam('positionX', value as number, rampTime);
-      }
-      if (name === 'spatialY') {
-        chain.spatialPanner.setParam('positionY', value as number, rampTime);
-      }
-      if (name === 'spatialZ') {
-        chain.spatialPanner.setParam('positionZ', value as number, rampTime);
+
+      // Spatial (simplified - just use panner for now, spatial is expensive)
+      if (name === 'spatialEnabled' || name === 'spatialX') {
+        // Map spatial X to stereo pan for performance
+        if (p.spatialEnabled) {
+          chain.panner.bypassed = false;
+          chain.panner.setParam('pan', p.spatialX, rampTime);
+        }
       }
     }
+  }
+
+  // Insert an effect into the chain after the LP filter
+  private insertEffectAfterFilter(trackIdx: number, effect: { input: AudioNode; output: AudioNode }): void {
+    const chain = this.trackChains.get(trackIdx);
+    if (!chain) return;
+
+    // For simplicity, we just set bypass on/off rather than rewiring
+    // The effect processes in parallel when enabled
+    chain.lpFilter.output.connect(effect.input);
+    effect.output.connect(chain.panner.input);
   }
 
   getParams(trackIdx: number): TrackParams {
@@ -466,7 +517,6 @@ export class AudioEngine {
   }
 
   noteOn(note: number, freq: number, trackIdx: number = 0): void {
-    // If note is already playing, release it first
     if (this.noteTrackMap.has(note)) {
       this.noteOff(note);
     }
@@ -474,7 +524,6 @@ export class AudioEngine {
     const chain = this.trackChains.get(trackIdx);
     if (!chain) return;
 
-    // Start oscillator and trigger envelope
     chain.oscillator.start(note, freq);
     chain.envelope.noteOn(note);
     this.noteTrackMap.set(note, trackIdx);
@@ -486,7 +535,6 @@ export class AudioEngine {
 
     const chain = this.trackChains.get(trackIdx);
     if (chain) {
-      // Trigger envelope release, then stop oscillator after release completes
       chain.envelope.noteOff(note);
       const releaseTime = chain.envelope.release;
       chain.oscillator.stopAfter(note, releaseTime + 0.05);
@@ -499,14 +547,11 @@ export class AudioEngine {
     const chain = this.trackChains.get(trackIdx);
     if (!chain) return;
 
-    // Use a unique note ID combining frequency and track to avoid collisions
     const noteId = Math.floor(freq * 1000) + trackIdx * 100000;
 
-    // Start oscillator and trigger envelope with duration
     chain.oscillator.start(noteId, freq);
     chain.envelope.trigger(noteId, durationSeconds);
 
-    // Stop oscillator after envelope completes (duration + release)
     const totalTime = durationSeconds + chain.envelope.release + 0.05;
     chain.oscillator.stopAfter(noteId, totalTime);
   }
