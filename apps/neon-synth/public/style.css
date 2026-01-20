@@ -564,6 +564,49 @@ main { flex: 1; display: flex; flex-direction: column; padding: 10px 12px; posit
     filter: drop-shadow(0 0 5px rgba(0,255,255,0.5));
 }
 
+/* FX Section with Pagination */
+.fx-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.fx-pager {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(191,95,255,0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(191,95,255,0.15);
+}
+
+.fx-pager span {
+    font-size: 0.7em;
+    font-weight: 900;
+    color: var(--nm);
+    font-family: monospace;
+    text-shadow: 0 0 8px var(--nm);
+}
+
+.fx-pager .btn-action {
+    padding: 4px 12px;
+    font-size: 0.8em;
+    background: linear-gradient(180deg, #2a0044 0%, #1a0033 100%);
+}
+
+.fx-pager .btn-action:hover {
+    background: linear-gradient(180deg, #3a0066 0%, #2a0044 100%);
+    color: var(--nc);
+    box-shadow: 0 0 10px rgba(0,255,255,0.3);
+}
+
+#fx-controls-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 /* FX Modules */
 .fx-module {
     background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 100%);

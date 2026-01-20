@@ -121,6 +121,14 @@ class SynthApp {
   visualizerNoteKeyIndex: number | null = null;
   keyboardExpanded: boolean = false;
 
+  // FX Pagination
+  fxPage: number = 0;
+  static readonly FX_PAGES = [
+    ['lpFilter', 'hpFilter', 'saturation', 'distortion', 'bitcrusher'],
+    ['phaser', 'flanger', 'pan', 'delay', 'reverb'],
+    ['spatial3d']
+  ];
+
   constructor() {
     this.engine = new AudioEngine();
     this.initializeEmptyPatterns();
@@ -134,11 +142,11 @@ class SynthApp {
   initializeEmptyPatterns(): void {
     const patternIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     patternIds.forEach(id => {
-      this.patterns[id] = this.createEmptyPattern();
+      this.patterns[id] = this.createEmptyTrack();
     });
   }
 
-  createEmptyPattern(): Pattern {
+  createEmptyTrack(): Pattern {
     return {
       tracks: [[], [], [], []],
       trackParams: [{}, {}, {}, {}]
@@ -226,14 +234,14 @@ class SynthApp {
     this.patternBank = createPatternBank({
       numSlots: 8,
       activeColor: 'cyan',
-      label: 'PATTERNS',
-      onSelect: (id) => this.switchPattern(id),
-      onCopy: (fromId, toId) => this.copyPattern(fromId, toId),
-      onClear: (id) => this.clearPattern(id)
+      label: 'TRACKS',
+      onSelect: (id) => this.switchTrack(id),
+      onCopy: (fromId, toId) => this.copyTrack(fromId, toId),
+      onClear: (id) => this.clearTrack(id)
     });
 
     patternBankContainer.appendChild(this.patternBank.element);
-    this.updatePatternIndicators();
+    this.updateTrackIndicators();
   }
 
   /**
@@ -284,12 +292,12 @@ class SynthApp {
   /**
    * PATTERN METHODS
    */
-  saveCurrentToPattern(id: string): void {
+  saveCurrentTrack(id: string): void {
     this.patterns[id] = {
       tracks: this.pianoRoll.getTracksAsTracker(),
       trackParams: JSON.parse(JSON.stringify(this.engine.trackParams))
     };
-    this.updatePatternIndicators();
+    this.updateTrackIndicators();
   }
 
   loadPattern(id: string): void {
@@ -313,11 +321,11 @@ class SynthApp {
     }
   }
 
-  switchPattern(id: PatternId): void {
+  switchTrack(id: PatternId): void {
     if (id === this.currentPatternId) return;
 
     // Save current pattern before switching
-    this.saveCurrentToPattern(this.currentPatternId);
+    this.saveCurrentTrack(this.currentPatternId);
 
     // Load new pattern
     this.currentPatternId = id;
@@ -326,16 +334,16 @@ class SynthApp {
     showToast(`PATTERN ${id}`, 'info');
   }
 
-  copyPattern(fromId: PatternId, toId: PatternId): void {
-    this.saveCurrentToPattern(this.currentPatternId);
+  copyTrack(fromId: PatternId, toId: PatternId): void {
+    this.saveCurrentTrack(this.currentPatternId);
     this.patterns[toId] = JSON.parse(JSON.stringify(this.patterns[fromId]));
-    this.updatePatternIndicators();
+    this.updateTrackIndicators();
     showToast(`COPIED ${fromId} -> ${toId}`, 'success');
   }
 
-  clearPattern(id: PatternId): void {
-    this.patterns[id] = this.createEmptyPattern();
-    this.updatePatternIndicators();
+  clearTrack(id: PatternId): void {
+    this.patterns[id] = this.createEmptyTrack();
+    this.updateTrackIndicators();
 
     if (id === this.currentPatternId) {
       this.pianoRoll.clearAll();
@@ -345,7 +353,7 @@ class SynthApp {
     showToast(`CLEARED PATTERN ${id}`, 'info');
   }
 
-  updatePatternIndicators(): void {
+  updateTrackIndicators(): void {
     if (!this.patternBank) return;
 
     const patternIds = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
@@ -393,6 +401,7 @@ class SynthApp {
     });
 
     this.trackPanel.setThumbnailLoading(true);
+    showToast('Creating album artwork...', 'ai');
 
     try {
       const result = await websim.imageGen({
@@ -403,11 +412,11 @@ class SynthApp {
       this.thumbnailUrl = result.url;
       this.thumbnailPrompt = prompt;
       this.trackPanel.setThumbnail(result.url);
-      showToast('THUMBNAIL GENERATED', 'success');
+      showToast('Album art generated!', 'ai');
     } catch (err) {
       console.error('Thumbnail generation failed:', err);
       this.trackPanel.setThumbnailLoading(false);
-      showToast('THUMBNAIL GENERATION FAILED', 'error');
+      showToast('Artwork generation failed', 'error');
     }
   }
 
@@ -430,7 +439,7 @@ class SynthApp {
   }
 
   /**
-   * KNOB INITIALIZATION
+   * KNOB INITIALIZATION (static knobs only)
    */
   initKnobs(): void {
     // Master volume knob
@@ -462,35 +471,6 @@ class SynthApp {
     });
     document.getElementById('detune-knob')?.appendChild(detuneKnob.element);
     this.knobs.detune = detuneKnob;
-
-    // Filter - Cutoff
-    const cutoffKnob = createKnob({
-      label: 'CUTOFF',
-      value: 2000,
-      min: 20,
-      max: 15000,
-      step: 1,
-      color: 'cyan',
-      size: 'small',
-      onChange: (val: number) => this.updateParamWithRetrigger('filterCutoff', val, this.getSelectedTrack()),
-      formatValue: (v: number) => Math.round(v)
-    });
-    document.getElementById('cutoff-knob')?.appendChild(cutoffKnob.element);
-    this.knobs.filterCutoff = cutoffKnob;
-
-    // Filter - Resonance
-    const resoKnob = createKnob({
-      label: 'RESONANCE',
-      value: 1,
-      min: 0,
-      max: 20,
-      step: 0.1,
-      color: 'cyan',
-      size: 'small',
-      onChange: (val: number) => this.updateParamWithRetrigger('filterReso', val, this.getSelectedTrack())
-    });
-    document.getElementById('reso-knob')?.appendChild(resoKnob.element);
-    this.knobs.filterReso = resoKnob;
 
     // Envelope - Attack
     const attackKnob = createKnob({
@@ -548,47 +528,218 @@ class SynthApp {
     document.getElementById('release-knob')?.appendChild(releaseKnob.element);
     this.knobs.release = releaseKnob;
 
-    // Effects - Delay Mix
-    const delayKnob = createKnob({
-      label: 'DLY MIX',
-      value: 0.2,
-      min: 0,
-      max: 0.8,
-      step: 0.01,
-      color: 'purple',
-      size: 'small',
-      onChange: (val: number) => this.engine.updateParam('delayMix', val, this.getSelectedTrack())
-    });
-    document.getElementById('delay-knob')?.appendChild(delayKnob.element);
-    this.knobs.delayMix = delayKnob;
+    // Render paginated FX controls
+    this.renderFXControls();
+  }
 
-    // Effects - Delay Time
-    const delayTimeKnob = createKnob({
-      label: 'DLY TIME',
-      value: 0.3,
-      min: 0.05,
-      max: 1,
-      step: 0.01,
-      color: 'purple',
-      size: 'small',
-      onChange: (val: number) => this.engine.updateParam('delayTime', val, this.getSelectedTrack())
-    });
-    document.getElementById('delay-time-knob')?.appendChild(delayTimeKnob.element);
-    this.knobs.delayTime = delayTimeKnob;
+  /**
+   * FX CONTROL DEFINITIONS
+   */
+  getFXControlDefs(): Record<string, { name: string; controls: Array<{ id: string; label: string; param: string; min: number; max: number; step: number; value: number; color: string; format?: (v: number) => string; onChange?: (val: number) => void }> }> {
+    return {
+      lpFilter: {
+        name: 'LP FILTER',
+        controls: [
+          { id: 'cutoff', label: 'CUTOFF', param: 'filterCutoff', min: 20, max: 15000, step: 1, value: 2000, color: 'cyan', format: (v) => String(Math.round(v)) },
+          { id: 'reso', label: 'RESO', param: 'filterReso', min: 0, max: 20, step: 0.1, value: 1, color: 'cyan' }
+        ]
+      },
+      hpFilter: {
+        name: 'HP FILTER',
+        controls: [
+          { id: 'hpCutoff', label: 'CUTOFF', param: 'hpFilterCutoff', min: 20, max: 2000, step: 1, value: 20, color: 'cyan', format: (v) => String(Math.round(v)) },
+          { id: 'hpReso', label: 'RESO', param: 'hpFilterReso', min: 0, max: 20, step: 0.1, value: 0, color: 'cyan' }
+        ]
+      },
+      saturation: {
+        name: 'SATURATE',
+        controls: [
+          { id: 'satDrive', label: 'DRIVE', param: 'saturationDrive', min: 0, max: 100, step: 1, value: 0, color: 'orange' }
+        ]
+      },
+      distortion: {
+        name: 'DISTORT',
+        controls: [
+          { id: 'distDrive', label: 'DRIVE', param: 'distortionDrive', min: 0, max: 100, step: 1, value: 0, color: 'orange',
+            onChange: (val) => {
+              this.engine.updateParam('distortionDrive', val, this.getSelectedTrack());
+              this.engine.updateParam('distortionEnabled', val > 0, this.getSelectedTrack());
+            }
+          },
+          { id: 'distTone', label: 'TONE', param: 'distortionTone', min: 0, max: 100, step: 1, value: 50, color: 'orange' }
+        ]
+      },
+      bitcrusher: {
+        name: 'CRUSH',
+        controls: [
+          { id: 'bits', label: 'BITS', param: 'bitcrusherBits', min: 1, max: 16, step: 1, value: 16, color: 'red', format: (v) => String(Math.round(v)),
+            onChange: (val) => {
+              this.engine.updateParam('bitcrusherBits', val, this.getSelectedTrack());
+              this.engine.updateParam('bitcrusherEnabled', val < 16, this.getSelectedTrack());
+            }
+          },
+          { id: 'downsample', label: 'CRUSH', param: 'bitcrusherDownsample', min: 1, max: 50, step: 1, value: 1, color: 'red', format: (v) => String(Math.round(v)),
+            onChange: (val) => {
+              this.engine.updateParam('bitcrusherDownsample', val, this.getSelectedTrack());
+              this.engine.updateParam('bitcrusherEnabled', val > 1, this.getSelectedTrack());
+            }
+          }
+        ]
+      },
+      pan: {
+        name: 'PAN',
+        controls: [
+          { id: 'pan', label: 'PAN', param: 'panPosition', min: 0, max: 100, step: 1, value: 50, color: 'yellow',
+            format: (v) => v < 50 ? `L${50 - v}` : v > 50 ? `R${v - 50}` : 'C',
+            onChange: (val) => {
+              this.engine.updateParam('panPosition', val, this.getSelectedTrack());
+              this.engine.updateParam('panEnabled', val !== 50, this.getSelectedTrack());
+            }
+          }
+        ]
+      },
+      delay: {
+        name: 'DELAY',
+        controls: [
+          { id: 'delayMix', label: 'MIX', param: 'delayMix', min: 0, max: 0.8, step: 0.01, value: 0.2, color: 'purple' },
+          { id: 'delayTime', label: 'TIME', param: 'delayTime', min: 0.05, max: 1, step: 0.01, value: 0.3, color: 'purple' }
+        ]
+      },
+      reverb: {
+        name: 'REVERB',
+        controls: [
+          { id: 'reverbMix', label: 'MIX', param: 'reverbMix', min: 0, max: 1, step: 0.01, value: 0.3, color: 'purple' }
+        ]
+      },
+      phaser: {
+        name: 'PHASER',
+        controls: [
+          { id: 'phaserRate', label: 'RATE', param: 'phaserRate', min: 0.01, max: 10, step: 0.01, value: 0.5, color: 'magenta',
+            onChange: (val) => {
+              this.engine.updateParam('phaserRate', val, this.getSelectedTrack());
+              this.engine.updateParam('phaserEnabled', true, this.getSelectedTrack());
+            }
+          },
+          { id: 'phaserDepth', label: 'DEPTH', param: 'phaserDepth', min: 0, max: 100, step: 1, value: 70, color: 'magenta',
+            onChange: (val) => {
+              this.engine.updateParam('phaserDepth', val, this.getSelectedTrack());
+              this.engine.updateParam('phaserEnabled', val > 0, this.getSelectedTrack());
+            }
+          },
+          { id: 'phaserMix', label: 'MIX', param: 'phaserMix', min: 0, max: 100, step: 1, value: 50, color: 'magenta' }
+        ]
+      },
+      flanger: {
+        name: 'FLANGER',
+        controls: [
+          { id: 'flangerRate', label: 'RATE', param: 'flangerRate', min: 0.01, max: 10, step: 0.01, value: 0.3, color: 'magenta',
+            onChange: (val) => {
+              this.engine.updateParam('flangerRate', val, this.getSelectedTrack());
+              this.engine.updateParam('flangerEnabled', true, this.getSelectedTrack());
+            }
+          },
+          { id: 'flangerDepth', label: 'DEPTH', param: 'flangerDepth', min: 0, max: 100, step: 1, value: 70, color: 'magenta',
+            onChange: (val) => {
+              this.engine.updateParam('flangerDepth', val, this.getSelectedTrack());
+              this.engine.updateParam('flangerEnabled', val > 0, this.getSelectedTrack());
+            }
+          },
+          { id: 'flangerMix', label: 'MIX', param: 'flangerMix', min: 0, max: 100, step: 1, value: 50, color: 'magenta' }
+        ]
+      },
+      spatial3d: {
+        name: '3D SPATIAL',
+        controls: [
+          { id: 'spatialX', label: 'X', param: 'spatialX', min: -100, max: 100, step: 1, value: 0, color: 'green',
+            format: (v) => v < 0 ? `L${Math.abs(v)}` : v > 0 ? `R${v}` : 'C',
+            onChange: (val) => {
+              this.engine.updateParam('spatialX', val, this.getSelectedTrack());
+              this.engine.updateParam('spatialEnabled', true, this.getSelectedTrack());
+            }
+          },
+          { id: 'spatialY', label: 'Y', param: 'spatialY', min: -100, max: 100, step: 1, value: 0, color: 'green',
+            format: (v) => v < 0 ? `D${Math.abs(v)}` : v > 0 ? `U${v}` : 'C',
+            onChange: (val) => {
+              this.engine.updateParam('spatialY', val, this.getSelectedTrack());
+              this.engine.updateParam('spatialEnabled', true, this.getSelectedTrack());
+            }
+          },
+          { id: 'spatialZ', label: 'Z', param: 'spatialZ', min: -100, max: 100, step: 1, value: 0, color: 'green',
+            format: (v) => v < 0 ? `B${Math.abs(v)}` : v > 0 ? `F${v}` : 'C',
+            onChange: (val) => {
+              this.engine.updateParam('spatialZ', val, this.getSelectedTrack());
+              this.engine.updateParam('spatialEnabled', true, this.getSelectedTrack());
+            }
+          }
+        ]
+      }
+    };
+  }
 
-    // Effects - Reverb Mix
-    const reverbKnob = createKnob({
-      label: 'REV MIX',
-      value: 0.3,
-      min: 0,
-      max: 1,
-      step: 0.01,
-      color: 'purple',
-      size: 'small',
-      onChange: (val: number) => this.engine.updateParam('reverbMix', val, this.getSelectedTrack())
-    });
-    document.getElementById('reverb-knob')?.appendChild(reverbKnob.element);
-    this.knobs.reverbMix = reverbKnob;
+  /**
+   * RENDER FX CONTROLS (paginated)
+   */
+  renderFXControls(): void {
+    const container = document.getElementById('fx-controls-container');
+    if (!container) return;
+
+    // Clear container
+    container.innerHTML = '';
+
+    // Update page info
+    const pageInfo = document.getElementById('fx-page-info');
+    if (pageInfo) pageInfo.textContent = `${this.fxPage + 1} / ${SynthApp.FX_PAGES.length}`;
+
+    // Get current page FX modules
+    const activeModules = SynthApp.FX_PAGES[this.fxPage];
+    const fxDefs = this.getFXControlDefs();
+    const params = this.engine.getParams(this.getSelectedTrack());
+
+    for (const fxKey of activeModules) {
+      const def = fxDefs[fxKey];
+      if (!def) continue;
+
+      // Create FX module element
+      const moduleEl = document.createElement('div');
+      moduleEl.className = 'fx-module';
+      moduleEl.innerHTML = `
+        <div class="fx-module-header">
+          <span class="fx-module-name">${def.name}</span>
+        </div>
+        <div class="fx-controls"></div>
+      `;
+
+      const controlsEl = moduleEl.querySelector('.fx-controls')!;
+
+      // Create knobs for this module
+      for (const ctrl of def.controls) {
+        const knobContainer = document.createElement('div');
+        knobContainer.className = 'knob-slot';
+
+        // Get current value from params
+        const currentValue = (params as Record<string, unknown>)[ctrl.param] as number ?? ctrl.value;
+
+        const knob = createKnob({
+          label: ctrl.label,
+          value: currentValue,
+          min: ctrl.min,
+          max: ctrl.max,
+          step: ctrl.step,
+          color: ctrl.color as 'cyan' | 'magenta' | 'yellow' | 'green' | 'orange' | 'purple' | 'red',
+          size: 'small',
+          onChange: ctrl.onChange || ((val: number) => this.engine.updateParam(ctrl.param, val, this.getSelectedTrack())),
+          formatValue: ctrl.format
+        });
+
+        knobContainer.appendChild(knob.element);
+        controlsEl.appendChild(knobContainer);
+
+        // Store knob reference
+        this.knobs[ctrl.param] = knob;
+      }
+
+      container.appendChild(moduleEl);
+    }
   }
 
   /**
@@ -834,7 +985,7 @@ class SynthApp {
       this.aiTargetModeIdx = (this.aiTargetModeIdx + 1) % this.aiTargetModes.length;
       const mode = this.aiTargetModes[this.aiTargetModeIdx];
       this.aiTargetBtn.textContent = mode;
-      const modeDesc = mode === 'TRACK' ? 'entire track (all synths)' : 'current pattern only';
+      const modeDesc = mode === 'TRACK' ? 'entire song (all synths)' : 'current track only';
       showToast(`Target: ${modeDesc}`, 'info');
     });
 
@@ -842,6 +993,16 @@ class SynthApp {
     this.visualizerCanvas.style.cursor = 'pointer';
     this.visualizerCanvas.addEventListener('click', () => this.playVisualizerNote());
     this.visualizerCanvas.addEventListener('dblclick', () => this.toggleVisualizerNote());
+
+    // FX pagination
+    document.getElementById('fx-prev')?.addEventListener('click', () => {
+      this.fxPage = (this.fxPage - 1 + SynthApp.FX_PAGES.length) % SynthApp.FX_PAGES.length;
+      this.renderFXControls();
+    });
+    document.getElementById('fx-next')?.addEventListener('click', () => {
+      this.fxPage = (this.fxPage + 1) % SynthApp.FX_PAGES.length;
+      this.renderFXControls();
+    });
   }
 
   getCKeyIndex(): number {
@@ -959,15 +1120,22 @@ class SynthApp {
   refreshUIForTrack(trackIdx: number): void {
     const params = this.engine.getParams(trackIdx);
 
+    // Update wave buttons
     document.querySelectorAll('.wave-btn').forEach(b => {
       b.classList.toggle('active', (b as HTMLElement).dataset.wave === params.waveType);
     });
 
-    for (const [key, val] of Object.entries(params)) {
+    // Update static knobs (non-FX)
+    const staticKnobs = ['masterVolume', 'detune', 'attack', 'decay', 'sustain', 'release'];
+    for (const key of staticKnobs) {
       if (this.knobs[key]) {
-        this.knobs[key].setValue(val as number);
+        const val = (params as Record<string, unknown>)[key] as number;
+        if (val !== undefined) this.knobs[key].setValue(val);
       }
     }
+
+    // Re-render FX controls with current track values
+    this.renderFXControls();
   }
 
   /**
@@ -983,10 +1151,27 @@ class SynthApp {
       detune: 0,
       filterCutoff: 2000,
       filterReso: 1,
+      hpFilterCutoff: 20,
+      hpFilterReso: 0,
       attack: 0.1,
       decay: 0.2,
       sustain: 0.5,
       release: 0.5,
+      saturationDrive: 0,
+      distortionDrive: 0,
+      distortionTone: 50,
+      bitcrusherBits: 16,
+      bitcrusherDownsample: 1,
+      panPosition: 50,
+      phaserRate: 0.5,
+      phaserDepth: 70,
+      phaserMix: 50,
+      flangerRate: 0.3,
+      flangerDepth: 70,
+      flangerMix: 50,
+      spatialX: 0,
+      spatialY: 0,
+      spatialZ: 0,
       delayMix: 0.2,
       delayTime: 0.3,
       reverbMix: 0.3,
@@ -1026,7 +1211,7 @@ class SynthApp {
     this.currentPatternId = 'A';
     if (this.patternBank) {
       this.patternBank.setActivePattern('A');
-      this.updatePatternIndicators();
+      this.updateTrackIndicators();
     }
 
     this.trackName = '';
@@ -1062,7 +1247,7 @@ class SynthApp {
   }
 
   async runDemoMode(): Promise<void> {
-    showToast('Running demo...', 'info');
+    showToast('Loading demo track...', 'ai');
 
     const demoState = {
       trackName: 'Neon Demo',
@@ -1084,7 +1269,7 @@ class SynthApp {
     };
 
     await this.applyState(demoState, 'ALL');
-    showToast('Demo loaded!', 'success');
+    showToast('Demo track loaded - hit play!', 'ai');
   }
 
   async handleAIRequest(): Promise<void> {
@@ -1105,7 +1290,7 @@ class SynthApp {
           if (this.pianoRoll.numKeys !== 88) {
             this.keyboardSizeSelect.value = '88';
             this.setKeyboardSize(88);
-            showToast('Expanded to full 88-note range', 'info');
+            showToast('Expanded to full 88-note range', 'ai');
           }
 
           const trackLengths = [64, 64, 128, 128];
@@ -1113,7 +1298,7 @@ class SynthApp {
           if (this.pianoRoll.steps < targetSteps) {
             this.pianoRoll.setSteps(targetSteps);
             const bars = targetSteps / 16;
-            showToast(`Expanded to ${bars} bars for full arrangement`, 'info');
+            showToast(`Preparing ${bars}-bar canvas for full arrangement`, 'ai');
           }
         }
 
@@ -1124,8 +1309,12 @@ class SynthApp {
         );
         const hasCreativeBrief = this.trackDescription && this.trackDescription.trim().length > 0;
 
+        // Thumbnail generation - will be started after creative brief is established
+        let thumbnailPromise: Promise<void> | null = null;
+
         if (!hasCreativeBrief && !hasExistingContent) {
           this.setStatus('CRAFTING VISION...');
+          showToast('Analyzing style and genre...', 'ai');
 
           try {
             const [detectedGenre, creativeBrief] = await Promise.all([
@@ -1137,17 +1326,30 @@ class SynthApp {
               this.trackSkill = detectedGenre;
               const genreData = DEFAULT_GENRES[detectedGenre];
               if (genreData) {
-                showToast(`GENRE: ${genreData.name}`, 'info');
+                showToast(`Genre detected: ${genreData.name}`, 'ai');
               }
             }
 
             if (creativeBrief) {
               this.trackDescription = creativeBrief;
               if (this.trackPanel) {
-                this.trackPanel.setDescription(creativeBrief);
+                // Stream the creative brief word by word
+                const words = creativeBrief.split(' ');
+                let currentText = '';
                 this.trackPanel.showDescription(true);
+
+                for (let i = 0; i < words.length; i++) {
+                  currentText += (i > 0 ? ' ' : '') + words[i];
+                  this.trackPanel.setDescription(currentText);
+                  await new Promise(resolve => setTimeout(resolve, 30));
+                }
               }
-              showToast('CREATIVE BRIEF SET', 'info');
+              showToast('Creative vision established', 'ai');
+            }
+
+            // Now start thumbnail generation with creative brief context
+            if (!this.thumbnailUrl) {
+              thumbnailPromise = this.generateThumbnail();
             }
           } catch (e) {
             console.warn('Could not generate creative brief:', e);
@@ -1155,6 +1357,9 @@ class SynthApp {
               this.trackSkill = detectGenreFromPrompt(prompt);
             }
           }
+        } else if (!this.thumbnailUrl) {
+          // No new brief generated, but still need thumbnail
+          thumbnailPromise = this.generateThumbnail();
         }
 
         if (!this.trackSkill && prompt) {
@@ -1162,6 +1367,7 @@ class SynthApp {
         }
 
         this.setStatus('AI COMPOSING...');
+        showToast('Composing synth tracks...', 'ai');
 
         const systemPrompt = buildSystemPrompt({
           targetMode,
@@ -1201,32 +1407,34 @@ class SynthApp {
           });
           try {
             await runWalkthrough(result, walkthroughCtx);
-            showToast('AI GENERATION COMPLETE', 'success');
+            showToast('Synth track complete!', 'ai');
 
-            this.saveCurrentToPattern(this.currentPatternId);
-            this.updatePatternIndicators();
+            this.saveCurrentTrack(this.currentPatternId);
+            this.updateTrackIndicators();
 
-            if (!this.thumbnailUrl) {
-              this.generateThumbnail();
+            // Wait for thumbnail if it was started
+            if (thumbnailPromise) {
+              await thumbnailPromise;
             }
 
             this.generateSuggestion(targetMode);
           } catch (err) {
             if ((err as Error).message === 'ABORTED') {
-              showToast('GENERATION ABORTED', 'info');
+              showToast('Generation aborted', 'info');
             } else {
               throw err;
             }
           }
         } else {
           await this.applyState(result, targetMode);
-          showToast('AI APPLIED CHANGES', 'success');
+          showToast('Synth parameters applied', 'ai');
 
-          this.saveCurrentToPattern(this.currentPatternId);
-          this.updatePatternIndicators();
+          this.saveCurrentTrack(this.currentPatternId);
+          this.updateTrackIndicators();
 
-          if (!this.thumbnailUrl) {
-            this.generateThumbnail();
+          // Wait for thumbnail if it was started
+          if (thumbnailPromise) {
+            await thumbnailPromise;
           }
 
           this.generateSuggestion(targetMode);
@@ -1263,7 +1471,7 @@ class SynthApp {
       trackParams = this.engine.trackParams as unknown as Record<string, Record<string, unknown>>;
     }
 
-    this.saveCurrentToPattern(this.currentPatternId);
+    this.saveCurrentTrack(this.currentPatternId);
 
     return {
       trackName: this.trackName?.trim() || '',
@@ -1312,7 +1520,7 @@ class SynthApp {
 
     if (state.patterns) {
       this.patterns = JSON.parse(JSON.stringify(state.patterns));
-      this.updatePatternIndicators();
+      this.updateTrackIndicators();
     }
     if (state.currentPatternId) {
       this.currentPatternId = state.currentPatternId as PatternId;

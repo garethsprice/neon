@@ -28,22 +28,44 @@ export const DEFAULTS: Record<string, number | boolean> = {
   tone: 70,
   snappy: 70,
   velocity: 100,
-  saturationEnabled: false,
-  saturationDrive: 20,
-  compressionEnabled: false,
-  compressionThreshold: 50,
-  compressionRatio: 50,
-  sidechainEnabled: false,
-  sidechainAmount: 50,
-  sidechainRelease: 30,
-  reverbEnabled: false,
-  reverbMix: 15,
+  // Filters
   lpFilterEnabled: false,
   lpFilterCutoff: 100,
   lpFilterResonance: 0,
   hpFilterEnabled: false,
   hpFilterCutoff: 0,
   hpFilterResonance: 0,
+  // Saturation
+  saturationEnabled: false,
+  saturationDrive: 20,
+  // Distortion
+  distortionEnabled: false,
+  distortionDrive: 50,
+  distortionTone: 50,
+  // Bitcrusher
+  bitcrusherEnabled: false,
+  bitcrusherBits: 12,
+  bitcrusherDownsample: 1,
+  // Compression
+  compressionEnabled: false,
+  compressionThreshold: 50,
+  compressionRatio: 50,
+  // Pan
+  panEnabled: false,
+  panPosition: 50,
+  // Sidechain
+  sidechainEnabled: false,
+  sidechainAmount: 50,
+  sidechainRelease: 30,
+  // Delay
+  delayEnabled: false,
+  delayTime: 30,
+  delayFeedback: 40,
+  delayMix: 30,
+  // Reverb
+  reverbEnabled: false,
+  reverbMix: 15,
+  // Pattern
   numSteps: 16,
   scale: 1,
   shuffle: 0
@@ -507,12 +529,47 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
   const hasCreativeBrief = sequencer.trackDescription && sequencer.trackDescription.trim().length > 0;
   const userPromptText = elements.aiPrompt?.value || '';
 
+  // Start thumbnail generation early (don't await - runs in background)
+  let thumbnailPromise: Promise<void> | null = null;
+  if (!sequencer.thumbnailUrl && userPromptText) {
+    if (elements.trackThumbnailContainer) {
+      elements.trackThumbnailContainer.classList.add('loading');
+    }
+    // Start generating thumbnail immediately using prompt text
+    thumbnailPromise = (async () => {
+      try {
+        const url = await generateThumbnail({
+          title: userPromptText.slice(0, 50), // Use prompt as initial title
+          description: '',
+          prompt: userPromptText,
+          genre: sequencer.trackSkill,
+        }, { genres: DEFAULT_GENRES });
+
+        sequencer.thumbnailUrl = url;
+        sequencer.thumbnailPrompt = userPromptText;
+
+        if (elements.trackThumbnailContainer) {
+          elements.trackThumbnailContainer.innerHTML = `<img src="${url}">`;
+        }
+      } catch (err) {
+        console.warn('Early thumbnail generation failed:', err);
+      } finally {
+        if (elements.trackThumbnailContainer) {
+          elements.trackThumbnailContainer.classList.remove('loading');
+        }
+      }
+    })();
+  }
+
   if (!hasCreativeBrief && !hasExistingContent) {
     const aiCopilot = el('ai-copilot');
     aiCopilot?.classList.add('ai-loading');
     if (elements.statusText) elements.statusText.innerText = "CRAFTING VISION...";
 
+    showToast("Analyzing your creative direction...", "ai", 3000);
+
     try {
+      // Run genre detection and creative brief in parallel
       const [detectedGenre, briefResponse] = await Promise.all([
         detectGenre(userPromptText, { genres: DEFAULT_GENRES, useAI: true }),
         websim.chat.completions.create({
@@ -522,13 +579,25 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
 
       if (detectedGenre && DEFAULT_GENRES[detectedGenre]) {
         sequencer.trackSkill = detectedGenre;
-        showToast(`GENRE: ${DEFAULT_GENRES[detectedGenre].name}`, "info");
+        const genreInfo = DEFAULT_GENRES[detectedGenre];
+        showToast(`Detected genre: ${genreInfo.name} - I'll use authentic ${genreInfo.name} production techniques`, "ai", 4000);
       }
 
       const creativeBrief = briefResponse.content.trim().replace(/^["']|["']$/g, '');
       sequencer.trackDescription = creativeBrief;
+
+      // Stream the creative brief word by word
       if (elements.trackDescriptionInput) {
-        elements.trackDescriptionInput.value = creativeBrief;
+        elements.trackDescriptionInput.value = '';
+        const words = creativeBrief.split(' ');
+        let currentText = '';
+
+        for (let i = 0; i < words.length; i++) {
+          currentText += (i > 0 ? ' ' : '') + words[i];
+          elements.trackDescriptionInput.value = currentText;
+          // Small delay between words for streaming effect
+          await new Promise(resolve => setTimeout(resolve, 30));
+        }
       }
 
       if (elements.trackDescriptionPanel) {
@@ -536,7 +605,7 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
         elements.trackInfoBtn?.classList.add('active');
       }
 
-      showToast("CREATIVE BRIEF SET", "info");
+      showToast("Vision locked in! Now composing your track...", "ai", 3000);
     } catch (err) {
       console.warn("Could not generate creative brief:", err);
     }
@@ -560,9 +629,18 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
 
   if (elements.statusText) elements.statusText.innerText = "AI COMPOSING...";
 
+  // Show mode-specific AI toast
+  const modeMessages: Record<string, string> = {
+    'PATTERN': 'Crafting a single loop - focusing on groove and feel',
+    'CHAIN': 'Building a multi-pattern progression with intro, build, and drop',
+    'TRACK': 'Composing full arrangement with multiple sections and dynamics'
+  };
+  showToast(modeMessages[targetMode] || 'Generating...', 'ai', 4000);
+
   let systemPrompt = aiPrompts.system;
   if (sequencer.trackSkill && aiPrompts.genreAugments[sequencer.trackSkill]) {
     systemPrompt += `\n\n${aiPrompts.genreAugments[sequencer.trackSkill]}`;
+    showToast(`Applying ${DEFAULT_GENRES[sequencer.trackSkill]?.name || sequencer.trackSkill} production rules`, 'ai', 3000);
   }
 
   const stateStr = Object.keys(currentState).length ? `\nSTATE:${JSON.stringify(currentState)}` : '';
@@ -588,6 +666,35 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
 
     data = remapPatternIds(data, sequencer.IDS);
 
+    // Show AI reasoning if available
+    if (data.reasoning && data.reasoning.length > 0) {
+      data.reasoning.forEach((reason, i) => {
+        setTimeout(() => showToast(reason, 'ai', 5000), i * 1500);
+      });
+    }
+
+    // Show track name toast
+    if (data.trackName) {
+      showToast(`Track: "${data.trackName}"`, 'ai', 4000);
+    }
+
+    // Show pattern/arrangement info
+    const patternCount = data.patterns ? Object.keys(data.patterns).length : 0;
+    if (patternCount > 1) {
+      showToast(`Created ${patternCount} unique patterns for variety`, 'ai', 3500);
+    }
+
+    // Show FX info if params are set
+    if (data.params) {
+      const fxInstruments = Object.keys(data.params).filter(inst => {
+        const p = data.params![inst];
+        return Object.keys(p).some(k => k.includes('Enabled') && p[k]);
+      });
+      if (fxInstruments.length > 0) {
+        showToast(`Applied FX processing to ${fxInstruments.join(', ')}`, 'ai', 3500);
+      }
+    }
+
     if (sequencer.isPlaying) elements.playBtn?.click();
 
     if (state.aiWalkthrough) {
@@ -608,7 +715,6 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
     }
 
     const trackLen = data.track ? data.track.length : 0;
-    const patternCount = data.patterns ? Object.keys(data.patterns).length : 0;
     let msg = "Composition complete!";
 
     if (targetMode === 'CHAIN' && patternCount > 0) {
@@ -625,7 +731,10 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
     }
     showToast(msg, "success");
 
-    if (!sequencer.thumbnailUrl) {
+    // Wait for early thumbnail if started, or generate now if needed
+    if (thumbnailPromise) {
+      await thumbnailPromise;
+    } else if (!sequencer.thumbnailUrl) {
       await generateTrackThumbnail(sequencer, elements);
     }
 

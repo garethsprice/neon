@@ -4,9 +4,17 @@
 
 import {
   LowpassFilter,
+  HighpassFilter,
   Reverb,
   Compressor,
+  Limiter,
   Saturation,
+  Distortion,
+  Bitcrusher,
+  StereoPanner,
+  SpatialPanner,
+  Phaser,
+  Flanger,
   Delay,
   Oscillator,
   Envelope,
@@ -18,6 +26,8 @@ export interface TrackParams {
   detune: number;
   filterCutoff: number;
   filterReso: number;
+  hpFilterCutoff: number;
+  hpFilterReso: number;
   attack: number;
   decay: number;
   sustain: number;
@@ -26,6 +36,29 @@ export interface TrackParams {
   delayMix: number;
   reverbMix: number;
   saturationDrive: number;
+  distortionEnabled: boolean;
+  distortionDrive: number;
+  distortionTone: number;
+  bitcrusherEnabled: boolean;
+  bitcrusherBits: number;
+  bitcrusherDownsample: number;
+  panEnabled: boolean;
+  panPosition: number;
+  // Phaser
+  phaserEnabled: boolean;
+  phaserRate: number;
+  phaserDepth: number;
+  phaserMix: number;
+  // Flanger
+  flangerEnabled: boolean;
+  flangerRate: number;
+  flangerDepth: number;
+  flangerMix: number;
+  // Spatial 3D
+  spatialEnabled: boolean;
+  spatialX: number;
+  spatialY: number;
+  spatialZ: number;
   [key: string]: unknown;
 }
 
@@ -37,8 +70,15 @@ export interface GlobalParams {
 interface TrackChain {
   oscillator: Oscillator;
   envelope: Envelope;
-  filter: LowpassFilter;
+  lpFilter: LowpassFilter;
+  hpFilter: HighpassFilter;
   saturation: Saturation;
+  distortion: Distortion;
+  bitcrusher: Bitcrusher;
+  phaser: Phaser;
+  flanger: Flanger;
+  panner: StereoPanner;
+  spatialPanner: SpatialPanner;
   delay: Delay;
   reverb: Reverb;
   output: GainNode;
@@ -50,6 +90,7 @@ export class AudioEngine {
   analyser: AnalyserNode;
   masterFilter: LowpassFilter;
   masterCompressor: Compressor;
+  masterLimiter: Limiter;
   trackChains: Map<number, TrackChain>;
   globalParams: GlobalParams;
   trackParams: TrackParams[];
@@ -74,14 +115,16 @@ export class AudioEngine {
       knee: 10,
       makeupGain: 0
     });
+    this.masterLimiter = new Limiter(this.ctx, { threshold: -1, release: 50 });
 
     // Per-track effect chains
     this.trackChains = new Map();
 
-    // Route: masterGain -> masterFilter -> masterCompressor -> analyser -> destination
+    // Route: masterGain -> masterFilter -> masterCompressor -> masterLimiter -> analyser -> destination
     this.masterGain.connect(this.masterFilter.input);
     this.masterFilter.connect(this.masterCompressor);
-    this.masterCompressor.output.connect(this.analyser);
+    this.masterCompressor.connect(this.masterLimiter);
+    this.masterLimiter.output.connect(this.analyser);
     this.analyser.connect(this.ctx.destination);
 
     // Global Parameters
@@ -90,12 +133,18 @@ export class AudioEngine {
       bpm: 120
     };
 
-    // Per-track Parameters
-    this.trackParams = Array.from({ length: 4 }, () => ({
+    // Per-track Parameters (8 tracks)
+    // Default spatial positions spread across stereo field
+    const defaultSpatialX = [-50, -30, 30, 50, -40, 40, -20, 20];
+    const defaultSpatialZ = [0, 0, 0, 0, -20, -20, -30, -30];
+
+    this.trackParams = Array.from({ length: 8 }, (_, i) => ({
       waveType: 'sawtooth' as WaveformType,
       detune: 0,
       filterCutoff: 2000,
       filterReso: 1,
+      hpFilterCutoff: 20,
+      hpFilterReso: 0,
       attack: 0.1,
       decay: 0.2,
       sustain: 0.5,
@@ -103,11 +152,34 @@ export class AudioEngine {
       delayTime: 0.3,
       delayMix: 0.2,
       reverbMix: 0.3,
-      saturationDrive: 0
+      saturationDrive: 0,
+      distortionEnabled: false,
+      distortionDrive: 50,
+      distortionTone: 50,
+      bitcrusherEnabled: false,
+      bitcrusherBits: 12,
+      bitcrusherDownsample: 1,
+      panEnabled: false,
+      panPosition: 50,
+      // Phaser
+      phaserEnabled: false,
+      phaserRate: 0.5,
+      phaserDepth: 70,
+      phaserMix: 50,
+      // Flanger
+      flangerEnabled: false,
+      flangerRate: 0.3,
+      flangerDepth: 70,
+      flangerMix: 50,
+      // Spatial 3D - spread tracks across stereo field by default
+      spatialEnabled: false,
+      spatialX: defaultSpatialX[i],
+      spatialY: 0,
+      spatialZ: defaultSpatialZ[i]
     }));
 
-    // Initialize per-track effect chains
-    for (let i = 0; i < 4; i++) {
+    // Initialize per-track effect chains (8 tracks)
+    for (let i = 0; i < 8; i++) {
       this.setupTrackChain(i);
     }
   }
@@ -130,9 +202,14 @@ export class AudioEngine {
     });
 
     // Create per-track effects using neon-fx plugins
-    const filter = new LowpassFilter(this.ctx, {
+    const lpFilter = new LowpassFilter(this.ctx, {
       cutoff: params.filterCutoff,
       resonance: params.filterReso * 5
+    });
+
+    const hpFilter = new HighpassFilter(this.ctx, {
+      cutoff: params.hpFilterCutoff,
+      resonance: params.hpFilterReso * 5
     });
 
     const saturation = new Saturation(this.ctx, {
@@ -140,6 +217,50 @@ export class AudioEngine {
       mix: 100
     });
     saturation.bypassed = true; // Off by default
+
+    const distortion = new Distortion(this.ctx, {
+      drive: params.distortionDrive,
+      tone: params.distortionTone,
+      mix: 100
+    });
+    distortion.bypassed = !params.distortionEnabled;
+
+    const bitcrusher = new Bitcrusher(this.ctx, {
+      bits: params.bitcrusherBits,
+      downsample: params.bitcrusherDownsample,
+      mix: 100
+    });
+    bitcrusher.bypassed = !params.bitcrusherEnabled;
+
+    // Modulation effects
+    const phaser = new Phaser(this.ctx, {
+      rate: params.phaserRate,
+      depth: params.phaserDepth,
+      mix: params.phaserMix
+    });
+    phaser.bypassed = !params.phaserEnabled;
+
+    const flanger = new Flanger(this.ctx, {
+      rate: params.flangerRate,
+      depth: params.flangerDepth,
+      mix: params.flangerMix
+    });
+    flanger.bypassed = !params.flangerEnabled;
+
+    // Panning
+    const panner = new StereoPanner(this.ctx, {
+      pan: (params.panPosition - 50) * 2 // Convert 0-100 to -100 to 100
+    });
+    panner.bypassed = !params.panEnabled;
+
+    // Spatial 3D positioning
+    const spatialPanner = new SpatialPanner(this.ctx, {
+      positionX: params.spatialX,
+      positionY: params.spatialY,
+      positionZ: params.spatialZ,
+      panningModel: 'HRTF'
+    });
+    spatialPanner.bypassed = !params.spatialEnabled;
 
     const delay = new Delay(this.ctx, {
       time: params.delayTime * 1000, // Convert to ms
@@ -158,11 +279,18 @@ export class AudioEngine {
     // Output node
     const output = this.ctx.createGain();
 
-    // Routing: oscillator -> envelope -> filter -> saturation -> delay -> reverb -> output
+    // Routing: oscillator -> envelope -> hpFilter -> lpFilter -> saturation -> distortion -> bitcrusher -> phaser -> flanger -> panner -> spatialPanner -> delay -> reverb -> output
     oscillator.connect(envelope);
-    envelope.connect(filter);
-    filter.connect(saturation);
-    saturation.connect(delay);
+    envelope.connect(hpFilter);
+    hpFilter.connect(lpFilter);
+    lpFilter.connect(saturation);
+    saturation.connect(distortion);
+    distortion.connect(bitcrusher);
+    bitcrusher.connect(phaser);
+    phaser.connect(flanger);
+    flanger.connect(panner);
+    panner.connect(spatialPanner);
+    spatialPanner.connect(delay);
     delay.connect(reverb);
     reverb.output.connect(output);
 
@@ -171,8 +299,15 @@ export class AudioEngine {
     this.trackChains.set(trackIdx, {
       oscillator,
       envelope,
-      filter,
+      lpFilter,
+      hpFilter,
       saturation,
+      distortion,
+      bitcrusher,
+      phaser,
+      flanger,
+      panner,
+      spatialPanner,
       delay,
       reverb,
       output
@@ -228,10 +363,16 @@ export class AudioEngine {
 
       // Update neon-fx effect plugins
       if (name === 'filterCutoff') {
-        chain.filter.setParam('cutoff', value as number, rampTime);
+        chain.lpFilter.setParam('cutoff', value as number, rampTime);
       }
       if (name === 'filterReso') {
-        chain.filter.setParam('resonance', (value as number) * 5, rampTime);
+        chain.lpFilter.setParam('resonance', (value as number) * 5, rampTime);
+      }
+      if (name === 'hpFilterCutoff') {
+        chain.hpFilter.setParam('cutoff', value as number, rampTime);
+      }
+      if (name === 'hpFilterReso') {
+        chain.hpFilter.setParam('resonance', (value as number) * 5, rampTime);
       }
       if (name === 'delayTime') {
         chain.delay.setParam('time', (value as number) * 1000, rampTime); // Convert to ms
@@ -249,6 +390,73 @@ export class AudioEngine {
         } else {
           chain.saturation.bypassed = true;
         }
+      }
+      // Distortion
+      if (name === 'distortionEnabled') {
+        chain.distortion.bypassed = !(value as boolean);
+      }
+      if (name === 'distortionDrive') {
+        chain.distortion.setParam('drive', value as number, rampTime);
+      }
+      if (name === 'distortionTone') {
+        chain.distortion.setParam('tone', value as number, rampTime);
+      }
+      // Bitcrusher
+      if (name === 'bitcrusherEnabled') {
+        chain.bitcrusher.bypassed = !(value as boolean);
+      }
+      if (name === 'bitcrusherBits') {
+        chain.bitcrusher.setParam('bits', value as number, rampTime);
+      }
+      if (name === 'bitcrusherDownsample') {
+        chain.bitcrusher.setParam('downsample', value as number, rampTime);
+      }
+      // Panner
+      if (name === 'panEnabled') {
+        chain.panner.bypassed = !(value as boolean);
+      }
+      if (name === 'panPosition') {
+        // Convert 0-100 to -100 to 100
+        chain.panner.setParam('pan', ((value as number) - 50) * 2, rampTime);
+      }
+      // Phaser
+      if (name === 'phaserEnabled') {
+        chain.phaser.bypassed = !(value as boolean);
+      }
+      if (name === 'phaserRate') {
+        chain.phaser.setParam('rate', value as number, rampTime);
+      }
+      if (name === 'phaserDepth') {
+        chain.phaser.setParam('depth', value as number, rampTime);
+      }
+      if (name === 'phaserMix') {
+        chain.phaser.setParam('mix', value as number, rampTime);
+      }
+      // Flanger
+      if (name === 'flangerEnabled') {
+        chain.flanger.bypassed = !(value as boolean);
+      }
+      if (name === 'flangerRate') {
+        chain.flanger.setParam('rate', value as number, rampTime);
+      }
+      if (name === 'flangerDepth') {
+        chain.flanger.setParam('depth', value as number, rampTime);
+      }
+      if (name === 'flangerMix') {
+        chain.flanger.setParam('mix', value as number, rampTime);
+      }
+      // Spatial 3D
+      if (name === 'spatialEnabled') {
+        chain.spatialPanner.bypassed = !(value as boolean);
+      }
+      if (name === 'spatialX') {
+        chain.spatialPanner.setParam('positionX', value as number, rampTime);
+      }
+      if (name === 'spatialY') {
+        chain.spatialPanner.setParam('positionY', value as number, rampTime);
+      }
+      if (name === 'spatialZ') {
+        chain.spatialPanner.setParam('positionZ', value as number, rampTime);
       }
     }
   }

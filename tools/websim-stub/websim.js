@@ -117,7 +117,7 @@
             model: openaiConfig.chatModel || 'gpt-4o-mini',
             messages: messages,
             temperature: options.temperature ?? 0.7,
-            max_tokens: options.max_tokens ?? 2048
+            max_tokens: options.max_tokens ?? 16384
         };
 
         // Handle JSON mode

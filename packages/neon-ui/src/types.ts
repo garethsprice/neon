@@ -9,7 +9,7 @@ export type NeonColor = 'cyan' | 'magenta' | 'yellow' | 'green' | 'orange' | 'pu
 export type NeonSize = 'small' | 'medium' | 'large';
 
 /** Toast notification type */
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = 'success' | 'error' | 'warning' | 'info' | 'ai';
 
 /** Knob options */
 export interface KnobOptions {

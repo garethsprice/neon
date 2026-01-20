@@ -61,6 +61,16 @@ function injectStyles(): void {
       color: #ffff00;
       box-shadow: 0 5px 30px rgba(0,0,0,0.6), 0 0 30px rgba(255,255,0,0.2);
     }
+    .neon-toast.ai {
+      border-left-color: #00ffcc;
+      color: #00ffcc;
+      box-shadow: 0 5px 30px rgba(0,0,0,0.6), 0 0 30px rgba(0,255,204,0.3);
+      background: linear-gradient(180deg, rgba(0,20,20,0.98) 0%, rgba(0,10,15,0.98) 100%);
+    }
+    .neon-toast.ai .toast-icon {
+      margin-right: 10px;
+      font-size: 1.1em;
+    }
     @keyframes neon-toast-in {
       from { opacity: 0; transform: translateY(30px) scale(0.9); }
       to { opacity: 1; transform: translateY(0) scale(1); }
@@ -97,7 +107,10 @@ export function showToast(
   const container = getContainer();
   const toast = document.createElement('div');
   toast.className = `neon-toast ${type}`;
-  toast.innerHTML = `<span>${message}</span>`;
+
+  // Add robot icon for AI toasts
+  const icon = type === 'ai' ? '<span class="toast-icon">🤖</span>' : '';
+  toast.innerHTML = `${icon}<span>${message}</span>`;
   container.appendChild(toast);
 
   let dismissed = false;

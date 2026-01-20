@@ -27,7 +27,9 @@ export interface PianoRollComponent {
   setTrackNames: (names: string[]) => void;
   setNoteAt: (trackIdx: number, step: number, noteIdx: number, duration?: number) => void;
   clearTrack: (trackIdx: number) => void;
+  clearAll: () => void;
   getTracksAsTracker: () => (number | null | [number, number])[][];
+  setTracksFromTracker: (tracks: (number | null | [number, number])[][]) => void;
   getNoteLabelsElement: () => HTMLElement | null;
 }
 
@@ -284,6 +286,8 @@ export async function runWalkthrough(data: AIGenerationData, ctx: WalkthroughCon
       if (targetMode === 'PATTERN' && trackIdx !== selectedTrackIdx) continue;
 
       const currentParams = engine.trackParams[trackIdx];
+      if (!currentParams) continue; // Skip tracks not supported by engine
+
       const paramsChanged = Object.entries(params).some(([key, val]) =>
         (currentParams as Record<string, unknown>)[key] !== val
       );
@@ -302,7 +306,7 @@ export async function runWalkthrough(data: AIGenerationData, ctx: WalkthroughCon
       }
 
       if (reasoning.length > 0) showReasoning(reasoning.shift()!);
-      const trackName = pianoRoll.trackNames[trackIdx] || `Pattern ${trackIdx + 1}`;
+      const trackName = pianoRoll.trackNames[trackIdx] || `Track ${trackIdx + 1}`;
       showToast(`Shaping ${trackName} sound...`, 'info');
 
       sidebar?.classList.add('ai-focus');
@@ -413,7 +417,7 @@ export async function runWalkthrough(data: AIGenerationData, ctx: WalkthroughCon
     // Create scroll controller for smooth, stable scrolling
     const scrollController = new ScrollController(pianoRoll.scrollArea, 24);
 
-    for (let trackIdx = 0; trackIdx < data.tracks.length && trackIdx < 4; trackIdx++) {
+    for (let trackIdx = 0; trackIdx < data.tracks.length && trackIdx < 8; trackIdx++) {
       checkAbort();
       const trackData = data.tracks[trackIdx];
 
@@ -436,7 +440,8 @@ export async function runWalkthrough(data: AIGenerationData, ctx: WalkthroughCon
       app.refreshUIForTrack(trackIdx);
       await sleep(200);
 
-      const trackName = pianoRoll.trackNames[trackIdx] || `Pattern ${trackIdx + 1}`;
+      const defaultTrackNames = ['Sub', 'Bass', 'Lead', 'Chords', 'Pad', 'Arp1', 'Arp2', 'FX'];
+      const trackName = pianoRoll.trackNames[trackIdx] || defaultTrackNames[trackIdx] || `Track ${trackIdx + 1}`;
       showToast(`Programming ${trackName}...`, 'info');
 
       pianoRollContainer?.classList.add('ai-focus');

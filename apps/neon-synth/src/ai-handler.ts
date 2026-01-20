@@ -18,12 +18,51 @@ import {
 } from '@neon/ai';
 
 export interface AIPrompts {
+  system: string;
   creativeBrief: string;
   improve: string;
   thumbnail: ThumbnailPromptConfig;
   /** Synth-specific genre augmentations */
   genreAugments: Record<string, string>;
 }
+
+/** Default parameter values for the synth engine */
+export const DEFAULTS: Record<string, number | boolean | string> = {
+  waveType: 'sawtooth',
+  detune: 0,
+  filterCutoff: 2000,
+  filterReso: 1,
+  hpFilterCutoff: 20,
+  hpFilterReso: 0,
+  attack: 0.1,
+  decay: 0.2,
+  sustain: 0.5,
+  release: 0.5,
+  delayTime: 0.3,
+  delayMix: 0.2,
+  reverbMix: 0.3,
+  saturationDrive: 0,
+  distortionEnabled: false,
+  distortionDrive: 50,
+  distortionTone: 50,
+  bitcrusherEnabled: false,
+  bitcrusherBits: 12,
+  bitcrusherDownsample: 1,
+  panEnabled: false,
+  panPosition: 50,
+  phaserEnabled: false,
+  phaserRate: 0.5,
+  phaserDepth: 70,
+  phaserMix: 50,
+  flangerEnabled: false,
+  flangerRate: 0.3,
+  flangerDepth: 70,
+  flangerMix: 50,
+  spatialEnabled: false,
+  spatialX: 0,
+  spatialY: 0,
+  spatialZ: 0
+};
 
 export interface BuildThumbnailOptions {
   title: string;
@@ -60,6 +99,7 @@ export interface CurrentState {
 
 // Default AI prompts (loaded from ai-prompts.json)
 let aiPrompts: AIPrompts = {
+  system: '',
   creativeBrief: CREATIVE_BRIEF_PROMPT,
   genreAugments: {},
   improve: "Suggest ONE improvement for this synth track. STATE: {{STATE}}\nReply with ONLY a short prompt.",
@@ -175,20 +215,18 @@ IMPORTANT: All note indices MUST be between 0 and ${numKeys - 1}. Using indices 
  */
 export function buildTargetModeInstruction(targetMode: string, state: CurrentState): string {
   if (targetMode === 'PATTERN') {
-    return `TARGET MODE: PATTERN - Create a single loop using the CURRENT settings.
+    return `TARGET MODE: PATTERN - Create a single loop.
 - Keep steps at ${state.steps} (do not change)
 - Keep numKeys at ${state.numKeys} (do not change)
-- Create all 4 patterns to work together as a cohesive loop
+- Create all 4 tracks to work together as a cohesive loop
 - Focus on a tight, instantly usable groove`;
   } else {
-    return `TARGET MODE: TRACK - Create a FULL composition using ALL available space.
+    return `TARGET MODE: TRACK - Create a FULL song-length composition.
 - The canvas has ${state.steps} steps (${state.steps / 16} bars) and ${state.numKeys} keys - USE ALL OF IT
-- You MUST fill ALL ${state.steps} steps with musical content (no empty sections)
-- You MUST use ALL 4 patterns: Pattern 0=Bass, Pattern 1=Lead, Pattern 2=Pads, Pattern 3=Arps
-- Each pattern array MUST have exactly ${state.steps} entries
-- Create variation and progression across all ${state.steps / 16} bars
+- Fill ALL ${state.steps} steps with musical content across all 4 tracks
+- Create variation and progression: intro, build, climax, breakdown, outro
 - Use the full note range: bass (indices 15-30), leads (39-55), pads (30-50), arps (50-70)
-- CRITICAL: Do not leave patterns empty or short - fill the entire ${state.steps} steps for ALL 4 patterns`;
+- Each track array MUST have exactly ${state.steps} entries`;
   }
 }
 
@@ -209,7 +247,10 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
     genreAugment = `\n\nGENRE GUIDANCE:\n${aiPrompts.genreAugments[skill]}`;
   }
 
-  return `You are a synth sound designer and music producer with deep knowledge of music theory and composition.${genreAugment}
+  // Include FX system documentation if loaded
+  const fxDocumentation = aiPrompts.system ? `\n\n${aiPrompts.system}` : '';
+
+  return `You are a synth sound designer and music producer with deep knowledge of music theory and composition.${genreAugment}${fxDocumentation}
 
 Adjust the synth parameters and/or the tracker tracks based on the user's request.
 If no trackName in STATE, generate one: creative 2-4 word title capturing the vibe (e.g. 'Cyber Drift', 'Neon Cascade', 'Digital Sunset').
@@ -299,20 +340,20 @@ EFFECTS:
 GLOBAL: bpm (40-200)
 
 SEQUENCER:
-- steps: 16, 32, or 64
-- tracks: Array of 4 patterns (one per synth voice), each with 'steps' length
+- steps: 16, 32, or 64 (song length)
+- "tracks" is an array of up to 8 arrays, one per synth track
 - Each step value:
-  - null = rest (no note)
+  - null = empty/rest step
   - number = note index with duration 1 step
   - [noteIndex, duration] = note that sustains for multiple steps
 
 DURATION FORMAT (CRITICAL):
-When a note has duration > 1, you put [noteIndex, duration] at the START step only.
-The following steps covered by that note's duration MUST be null (the note is still playing).
+When a note has duration > 1, put [noteIndex, duration] at the START step only.
+The following steps covered by that note's duration should be null (the note is still playing).
 
-EXAMPLE - A 4-step bass note starting at step 0:
-CORRECT: [[5, 4], null, null, null, 7, null, null, null, ...]
-WRONG:   [5, 5, 5, 5, 7, 7, 7, 7, ...]  // This creates 8 separate notes!
+EXAMPLE: A 4-step sustained note starting at step 0:
+CORRECT: [[30, 4], null, null, null, 27, null, null, null, ...]
+WRONG:   [30, 30, 30, 30, 27, 27, 27, 27, ...]  // This creates separate notes!
 
 DURATION GUIDELINES:
 - Melodies/Leads: 1-2 steps (punchy, rhythmic)
@@ -321,34 +362,42 @@ DURATION GUIDELINES:
 - Pads: 4-8 steps (long, sustained chords)
 - DEFAULT TO SHORT DURATIONS (1-2) for rhythmic parts!
 
-PATTERN ROLES (4 patterns play together to make the track):
-- Pattern 0 (tracks[0]): Bass (low indices, sawtooth/square)
-- Pattern 1 (tracks[1]): Lead/Melody (mid indices, SHORT durations!)
-- Pattern 2 (tracks[2]): Pads/Chords (sine/triangle, reverb)
-- Pattern 3 (tracks[3]): Arpeggios/FX (fast patterns, delay)
+TRACK ROLES (up to 8 independent synth tracks - use as many as needed):
+- tracks[0]: Sub Bass (very low indices 12-24, sine/triangle, foundation)
+- tracks[1]: Bass (low indices 20-32, sawtooth/square, main bass groove)
+- tracks[2]: Lead/Melody (mid indices 36-52, sawtooth, main melodic content)
+- tracks[3]: Chords/Stabs (mid indices 32-48, short chords, harmonic support)
+- tracks[4]: Pads (mid indices 30-50, sine/triangle, long sustained, heavy reverb)
+- tracks[5]: Arp 1 (high indices 48-64, fast patterns, delay)
+- tracks[6]: Arp 2/Texture (high indices 52-70, counterpoint to Arp 1)
+- tracks[7]: FX/Perc (any range, textural hits, risers, impacts)
+
+Use 4-6 tracks for simpler pieces, all 8 for rich, layered productions.
+Not every track needs content - leave tracks empty (all nulls) if not needed.
 
 REASONING: Include a "reasoning" array with 3-6 brief notes explaining your creative choices.
-These will be shown to the user during generation. Include emotional/aesthetic reasoning.
-Example: ["Setting dark techno vibe at 130 BPM", "Deep sub bass with square wave for punch", "Hypnotic arp pattern with delay for atmosphere"]
+Example: ["Setting dark techno vibe at 130 BPM", "Dual arps for movement", "Sub bass for weight"]
 
 OUTPUT JSON SCHEMA:
 {
-  "trackName": string (creative 2-4 word title for the track),
-  "trackNames": string[4] (name each of the 4 patterns),
-  "rootKey": number 0-11 (musical key: 0=C, 1=C#, 2=D, 3=D#, 4=E, 5=F, 6=F#, 7=G, 8=G#, 9=A, 10=A#, 11=B),
-  "trackParams": { "0": {...}, "1": {...}, "2": {...}, "3": {...} } (synth params for each pattern),
-  "globalParams": { "bpm": number },
-  "steps": number (keep current value in TRACK mode),
-  "numKeys": number (keep current value in TRACK mode),
-  "tracks": array of 4 pattern arrays, each with EXACTLY ${state.steps} entries - FILL ALL STEPS,
-  "reasoning": string[] (3-6 brief creative notes explaining key choice, musical decisions, etc.)
+  "trackName": "Creative Title",
+  "trackNames": ["Sub","Bass","Lead","Chords","Pad","Arp1","Arp2","FX"],
+  "rootKey": 0,
+  "trackParams": {"0":{...},"1":{...},...},
+  "globalParams": {"bpm": 120},
+  "tracks": [[sub],[bass],[lead],[chords],[pad],[arp1],[arp2],[fx]],
+  "reasoning": ["reason1","reason2"]
 }
 
+EXAMPLE OUTPUT (4 tracks used, 16 steps):
+{"trackName":"Neon Pulse","trackNames":["Sub","Bass","Lead","Pad"],"trackParams":{"1":{"waveType":"square","filterCutoff":800},"2":{"delayMix":0.3}},"globalParams":{"bpm":128},"tracks":[[15,null,null,null,15,null,null,null,15,null,null,null,15,null,null,null],[27,null,null,null,27,null,null,null,27,null,null,null,27,null,null,null],[39,40,41,39,40,41,39,40,41,39,40,41,39,40,41,39],[[30,8],null,null,null,null,null,null,null,[30,8],null,null,null,null,null,null,null]],"reasoning":["Dark techno vibe","Sub + bass for weight","Square bass for punch"]}
+
 CRITICAL RULES:
-1. "tracks" must be an array of 4 pattern arrays. Each pattern MUST have exactly ${state.steps} entries.
-2. Do NOT leave patterns empty. Do NOT make patterns shorter than ${state.steps} steps. FILL THE ENTIRE CANVAS.
-3. For sustained notes: use [noteIndex, duration] at the START only, then null for the remaining duration steps.
-4. Do NOT repeat note indices to make longer notes - that creates separate retriggered notes, not sustained ones.
+1. "tracks" is an array of up to 8 arrays at the ROOT level
+2. Each track array MUST have EXACTLY ${state.steps} entries (use null for empty steps)
+3. For sustained notes: [noteIndex, duration] at START only, then null for remaining duration
+4. Only output trackParams that DIFFER from defaults - omit unchanged values!
+5. Include only as many tracks as needed - don't pad with empty tracks
 
 User request: "${prompt}"`;
 }

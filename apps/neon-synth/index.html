@@ -69,16 +69,16 @@
                         </div>
                     </section>
 
-                    <!-- Track Panel & Pattern Bank Row -->
+                    <!-- Track Panel & Track Bank Row -->
                     <section class="track-pattern-row">
                         <!-- Track Panel (thumbnail, title, description) -->
                         <div id="track-panel-container" class="track-panel-wrapper">
                             <!-- TrackPanel component renders here -->
                         </div>
 
-                        <!-- Pattern Bank (A-H) -->
+                        <!-- Track Bank (A-H) - 8 independent synth tracks -->
                         <div id="pattern-bank-container" class="pattern-bank-wrapper">
-                            <!-- PatternBank component renders here -->
+                            <!-- Track selector renders here -->
                         </div>
                     </section>
 
@@ -172,27 +172,14 @@
                         </div>
                     </div>
 
-                    <!-- Filter -->
-                    <div class="fx-module">
-                        <div class="fx-module-header">
-                            <span class="fx-module-name">FILTER</span>
+                    <!-- FX Section with Pagination -->
+                    <div class="fx-section">
+                        <div class="fx-pager">
+                            <button id="fx-prev" class="btn-action">&lt;</button>
+                            <span id="fx-page-info">1 / 2</span>
+                            <button id="fx-next" class="btn-action">&gt;</button>
                         </div>
-                        <div class="fx-controls">
-                            <div id="cutoff-knob" class="knob-slot"></div>
-                            <div id="reso-knob" class="knob-slot"></div>
-                        </div>
-                    </div>
-
-                    <!-- Effects -->
-                    <div class="fx-module">
-                        <div class="fx-module-header">
-                            <span class="fx-module-name">EFFECTS</span>
-                        </div>
-                        <div class="fx-controls">
-                            <div id="delay-knob" class="knob-slot"></div>
-                            <div id="delay-time-knob" class="knob-slot"></div>
-                            <div id="reverb-knob" class="knob-slot"></div>
-                        </div>
+                        <div id="fx-controls-container"></div>
                     </div>
 
                 </aside>
