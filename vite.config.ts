@@ -4,6 +4,7 @@ import { resolve } from 'path';
 export default defineConfig({
   root: '.',
   publicDir: 'public',
+  base: process.env.BASE_URL || '/',
 
   resolve: {
     alias: {
