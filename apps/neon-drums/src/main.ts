@@ -319,8 +319,13 @@ async function init(): Promise<void> {
 
   const vizCanvas = el('visualizer-bg') as HTMLCanvasElement | null;
   if (vizCanvas) {
-    visualizer = createDrumsVisualizer(vizCanvas);
-    visualizer.play();
+    try {
+      visualizer = createDrumsVisualizer(vizCanvas);
+      visualizer.play();
+    } catch (err) {
+      // Background visualizer is decorative (requires WebGL) - never let it block app init
+      console.warn('Visualizer unavailable:', err);
+    }
   }
 
   setupUI();

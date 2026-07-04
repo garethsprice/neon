@@ -291,35 +291,65 @@
     }
 
     // Mock response generator for when OpenAI is not configured
-    function getMockResponse(prompt, jsonMode = false) {
+    function getMockResponse(prompt, jsonMode = false, systemPrompt = '') {
         const lowerPrompt = prompt.toLowerCase();
+        const lowerSystem = systemPrompt.toLowerCase();
 
-        // Pattern/drum generation - always return JSON for these
-        if (lowerPrompt.includes('pattern') || lowerPrompt.includes('drum') || lowerPrompt.includes('[pattern]')) {
-            return JSON.stringify({
-                bpm: 120 + Math.floor(Math.random() * 20),
-                trackName: 'Neon Pulse',
-                description: 'Driving electronic energy',
-                params: {},
-                patterns: {
-                    'A': {
-                        numSteps: 16,
-                        tracks: {
-                            bassDrum: [2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0],
-                            snare: [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0],
-                            closedHihat: [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
-                            openHihat: [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0]
-                        },
-                        flams: {}
-                    }
-                },
-                track: ['A'],
-                reasoning: ['Classic 4/4 house pattern', 'Punchy kick on downbeats', 'Crisp hi-hats for groove']
-            });
-        }
-
-        // If JSON mode is explicitly requested, wrap responses in JSON
+        // JSON responses only when the caller requested JSON mode.
+        // Plain-text calls (suggestions, briefs, demo prompts) mention "drum"/
+        // "pattern" too, and their output lands directly in input fields -
+        // they must never receive a JSON payload.
         if (jsonMode) {
+            // Both apps' generation calls always carry a system message identifying the app, so
+            // check those exact markers before any generic keyword fallback. This matters because
+            // the drums/synth STATE blobs both use words like "pattern"/"patterns" in their JSON
+            // keys - a keyword fallback checked first would misroute synth calls to the drum shape.
+            const isSynthGeneration = lowerSystem.includes('synth sound designer');
+            const isDrumGeneration = lowerSystem.includes('drum programmer') || lowerSystem.includes('tr-909');
+            // Only used when there's no system message at all (truly ambiguous single-message calls).
+            const looksLikeDrumKeywords = !systemPrompt &&
+                (lowerPrompt.includes('pattern') || lowerPrompt.includes('drum') || lowerPrompt.includes('[pattern]'));
+
+            // Synth track generation (neon-synth) - detected from its system prompt.
+            if (isSynthGeneration) {
+                return JSON.stringify({
+                    trackName: 'Neon Pulse',
+                    trackNames: ['Sub', 'Bass', 'Lead', 'Pad'],
+                    rootKey: 0,
+                    trackParams: { '1': { waveType: 'square', filterCutoff: 800 }, '2': { delayMix: 0.3 } },
+                    globalParams: { bpm: 120 + Math.floor(Math.random() * 20) },
+                    tracks: [
+                        [15, null, null, null, 15, null, null, null, 15, null, null, null, 15, null, null, null],
+                        [27, null, null, null, 27, null, null, null, 27, null, null, null, 27, null, null, null],
+                        [39, 40, 41, 39, 40, 41, 39, 40, 41, 39, 40, 41, 39, 40, 41, 39],
+                        [[30, 8], null, null, null, null, null, null, null, [30, 8], null, null, null, null, null, null, null]
+                    ],
+                    reasoning: ['Dark techno vibe', 'Sub + bass for weight', 'Square bass for punch']
+                });
+            }
+            // Drum pattern generation (neon-drums) - detected from its system prompt.
+            if (isDrumGeneration || looksLikeDrumKeywords) {
+                return JSON.stringify({
+                    bpm: 120 + Math.floor(Math.random() * 20),
+                    trackName: 'Neon Pulse',
+                    description: 'Driving electronic energy',
+                    params: {},
+                    patterns: {
+                        'A': {
+                            numSteps: 16,
+                            pattern: {
+                                bassDrum: [2, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0],
+                                snareDrum: [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0],
+                                closedHiHat: [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+                                openHiHat: [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0]
+                            },
+                            flams: {}
+                        }
+                    },
+                    track: ['A'],
+                    reasoning: ['Classic 4/4 house pattern', 'Punchy kick on downbeats', 'Crisp hi-hats for groove']
+                });
+            }
             // Track name suggestions
             if (lowerPrompt.includes('suggest') && lowerPrompt.includes('name')) {
                 const names = ['Neon Pulse', 'Cyber Dawn', 'Dark Matter', 'Digital Dreams',
@@ -344,6 +374,22 @@
         }
 
         // Non-JSON responses
+        // Creative brief (before the 'creative' prompt check - brief prompts say "creative brief")
+        if (lowerPrompt.includes('brief') || lowerPrompt.includes('vision')) {
+            return 'A driving, hypnotic sound with pulsing bass and crisp highs.';
+        }
+        // Improvement suggestions (before name suggestions - improve prompts embed state with "trackName")
+        if (lowerPrompt.includes('improve') || lowerPrompt.includes('enhance')) {
+            const suggestions = ['Add more groove and swing', 'Layer in some variation',
+                                'Boost the energy with open hats', 'Add sidechain pumping'];
+            return suggestions[Math.floor(Math.random() * suggestions.length)];
+        }
+        // Creative/demo prompts ("stylistic music prompt" requests)
+        if (lowerPrompt.includes('demo') || lowerPrompt.includes('creative') || lowerPrompt.includes('stylistic')) {
+            const prompts = ['Driving techno with industrial edge', 'Deep house groove',
+                            'Breakbeat energy', 'Minimal hypnotic pulse', 'Acid bassline journey'];
+            return prompts[Math.floor(Math.random() * prompts.length)];
+        }
         // Track name suggestions
         if (lowerPrompt.includes('suggest') && lowerPrompt.includes('name')) {
             const names = ['Neon Pulse', 'Cyber Dawn', 'Dark Matter', 'Digital Dreams',
@@ -356,25 +402,9 @@
                              'Added changes', 'Refined mix', 'Adjustment'];
             return messages[Math.floor(Math.random() * messages.length)];
         }
-        // Creative prompts
-        if (lowerPrompt.includes('demo') || lowerPrompt.includes('creative')) {
-            const prompts = ['Driving techno with industrial edge', 'Deep house groove',
-                            'Breakbeat energy', 'Minimal hypnotic pulse', 'Acid bassline journey'];
-            return prompts[Math.floor(Math.random() * prompts.length)];
-        }
-        // Improvement suggestions
-        if (lowerPrompt.includes('improve') || lowerPrompt.includes('enhance')) {
-            const suggestions = ['Try adjusting the levels', 'Experiment with different settings',
-                                'Layer in some variation', 'Try a different approach'];
-            return suggestions[Math.floor(Math.random() * suggestions.length)];
-        }
         // Genre detection
         if (lowerPrompt.includes('genre') || lowerPrompt.includes('skill')) {
             return 'techno';
-        }
-        // Creative brief
-        if (lowerPrompt.includes('brief') || lowerPrompt.includes('vision')) {
-            return 'A driving, hypnotic sound with pulsing bass and crisp highs.';
         }
 
         return 'AI response unavailable in local mode. Configure OpenAI with websim.config({ apiKey: "..." })';
@@ -441,6 +471,11 @@
                     const messages = options.messages || [];
                     const lastMessage = messages[messages.length - 1];
                     const prompt = lastMessage?.content || '';
+                    // Generation calls always carry a system message identifying which app/schema
+                    // is asking (suggestion/brief/demo calls are single-message, role 'user' only).
+                    // Routing on this instead of the user's free-text prompt means the mock returns
+                    // the right JSON shape even when the user's own words don't mention "drum"/"pattern".
+                    const systemPrompt = messages.find(m => m.role === 'system')?.content || '';
 
                     const jsonMode = options.json || options.response_format?.type === 'json_object';
 
@@ -459,13 +494,13 @@
                         } catch (e) {
                             console.error('[websim.chat] OpenAI error:', e.message);
                             // Fall back to mock on error
-                            content = getMockResponse(prompt, jsonMode);
+                            content = getMockResponse(prompt, jsonMode, systemPrompt);
                         }
                     } else {
                         // Simulate network delay for mock
                         console.log('[websim.chat] Using mock (no API key configured)');
                         await new Promise(r => setTimeout(r, 300 + Math.random() * 500));
-                        content = getMockResponse(prompt, jsonMode);
+                        content = getMockResponse(prompt, jsonMode, systemPrompt);
                     }
 
                     console.group('[websim.chat] Response');
