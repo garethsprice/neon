@@ -92,6 +92,16 @@ function injectStyles(): void {
             box-shadow: 0 0 6px rgba(0,255,255,0.3);
         }
 
+        /* Queued state - magenta pulse until the bar boundary */
+        .neon-pattern-slot.queued {
+            border-color: #ff00ff;
+            animation: neon-pattern-queued-pulse 0.8s ease-in-out infinite;
+        }
+        @keyframes neon-pattern-queued-pulse {
+            0%, 100% { box-shadow: 0 0 12px rgba(255,0,255,0.6); }
+            50% { box-shadow: 0 0 2px rgba(255,0,255,0.15); }
+        }
+
         /* Active state - cyan */
         .neon-pattern-slot.active.color-cyan {
             border-color: #00ffff;
@@ -173,7 +183,7 @@ function injectStyles(): void {
     stylesInjected = true;
 }
 
-const PATTERN_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+const PATTERN_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P'] as const;
 
 /** Pattern ID type */
 export type PatternId = typeof PATTERN_IDS[number];
@@ -192,6 +202,8 @@ export interface PatternBankOptions {
 export interface PatternBankComponent {
     element: HTMLElement;
     setActivePattern: (id: PatternId) => void;
+    /** Pulse a slot until its queued switch lands at the bar boundary. */
+    setQueuedPattern: (id: PatternId | null) => void;
     setPatternHasData: (id: PatternId, hasData: boolean) => void;
     getActivePattern: () => PatternId;
     destroy: () => void;
@@ -312,8 +324,23 @@ export function createPatternBank(options: PatternBankOptions = {}): PatternBank
         copySourceId = null;
     }
 
+    let queuedPatternId: PatternId | null = null;
+
+    function setQueuedPattern(id: PatternId | null): void {
+        if (queuedPatternId && slots[queuedPatternId]) {
+            slots[queuedPatternId].classList.remove('queued');
+        }
+        queuedPatternId = id;
+        if (id && slots[id]) {
+            slots[id].classList.add('queued');
+        }
+    }
+
     function setActivePattern(id: PatternId): void {
         if (!PATTERN_IDS.includes(id)) return;
+        if (id === queuedPatternId) {
+            setQueuedPattern(null);
+        }
 
         // Remove active from previous
         if (slots[activePatternId]) {
@@ -348,6 +375,7 @@ export function createPatternBank(options: PatternBankOptions = {}): PatternBank
     return {
         element: container,
         setActivePattern,
+        setQueuedPattern,
         setPatternHasData,
         getActivePattern,
         destroy

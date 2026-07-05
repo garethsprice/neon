@@ -19,7 +19,7 @@ const queryAll = (selector: string): NodeListOf<Element> => document.querySelect
 type ToastFn = (message: string, type: 'success' | 'error' | 'info') => void;
 
 /** App type for commit message generation */
-export type AppType = 'drums' | 'synth' | 'noise' | 'generic';
+export type AppType = 'drums' | 'synth' | 'noise' | 'studio' | 'generic';
 
 /** Feed item template customization */
 export interface FeedItemTemplate {

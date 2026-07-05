@@ -146,7 +146,6 @@ export class Reverb extends AudioPlugin {
     this._input.connect(this._preDelay);
     this._input.connect(this._dryGain);
     this._input.connect(this._bypassGain);
-    this._outputMixer.connect(this._wetGain);
 
     // Final output routing
     this._bypassGain.connect(this._output);

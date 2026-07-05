@@ -10,8 +10,7 @@ import {
   detectGenre,
   buildThumbnailPrompt,
   generateThumbnail,
-  DEFAULT_GENRES,
-  type AIPromptsConfig
+  DEFAULT_GENRES
 } from '@neon/ai';
 import { runWalkthrough } from './walkthrough';
 import type { Sequencer, PatternId } from './sequencer';

@@ -12,6 +12,9 @@
     "@neon/ui": "*",
     "@neon/fx": "*",
     "@neon/cloud": "*",
+    "@neon/ai": "*",
+    "@neon/engine": "*",
+    "@neon/instruments": "*",
     "@tonejs/midi": "^2.0.28"
   },
   "devDependencies": {

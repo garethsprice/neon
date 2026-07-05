@@ -21,6 +21,10 @@ const APP_PROMPTS: Record<string, AppPrompt> = {
     type: 'noise preset',
     examples: '"Boosted pink noise for warmth", "Added vinyl crackle", "Calm rain atmosphere"'
   },
+  studio: {
+    type: 'studio composition',
+    examples: '"New bassline in pattern B", "Extended song with a breakdown", "Swapped lead to square wave", "Sidechained the pads"'
+  },
   generic: {
     type: 'music project',
     examples: '"Updated settings", "New sound design", "Tweaked parameters"'

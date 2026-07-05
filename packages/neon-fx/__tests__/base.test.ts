@@ -219,6 +219,21 @@ describe('AudioPlugin', () => {
       expect(plugin._params.volume).toBe(0.3);
       expect(plugin._params.frequency).toBe(500);
     });
+
+    it('setModulatedParam applies to audio nodes without touching stored state', () => {
+      const plugin = new TestPlugin(audioContext as unknown as AudioContext) as TestPlugin & TestablePlugin;
+      plugin.setParam('volume', 0.5);
+      plugin.setModulatedParam('volume', 0.9, 0.03);
+      expect(plugin._lastApplied).toEqual({ name: 'volume', value: 0.9, rampTime: 0.03 });
+      expect(plugin._params.volume).toBe(0.5);
+      expect(plugin.serialize().params.volume).toBe(0.5);
+    });
+
+    it('setModulatedParam clamps to the parameter range', () => {
+      const plugin = new TestPlugin(audioContext as unknown as AudioContext) as TestPlugin & TestablePlugin;
+      plugin.setModulatedParam('volume', 5);
+      expect(plugin._lastApplied?.value).toBe(1);
+    });
   });
 
   describe('_setAudioParam helper', () => {

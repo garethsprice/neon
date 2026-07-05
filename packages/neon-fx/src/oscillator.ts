@@ -155,13 +155,40 @@ export class Oscillator {
 
   /**
    * Stop a voice after a delay (for coordinating with envelope release).
+   * Only stops the voice active at call time - if the note is retriggered
+   * before the delay elapses, the new voice is left running.
    * @param noteId The voice identifier
    * @param delay Delay in seconds before stopping
    */
   stopAfter(noteId: number, delay: number): void {
+    const voice = this._voices.get(noteId);
+    if (!voice) return;
     setTimeout(() => {
-      this.stop(noteId);
+      if (this._voices.get(noteId) === voice) {
+        this.stop(noteId);
+      }
     }, delay * 1000);
+  }
+
+  /**
+   * Schedule an independent one-shot voice at absolute AudioContext times
+   * (for lookahead sequencing). The voice is NOT tracked in the polyphonic
+   * voice map: retriggers of the same note inside a lookahead window can
+   * never steal each other, and held start()/stop() voices are unaffected.
+   * @param frequency Frequency in Hz
+   * @param startTime Absolute start time (>= ctx.currentTime)
+   * @param stopTime Absolute stop time
+   */
+  triggerVoice(frequency: number, startTime: number, stopTime: number): OscillatorNode {
+    const oscillator = this.ctx.createOscillator();
+    oscillator.type = this._waveform;
+    oscillator.frequency.setValueAtTime(frequency, startTime);
+    oscillator.detune.setValueAtTime(this._detune, startTime);
+    oscillator.connect(this.output);
+    oscillator.start(startTime);
+    oscillator.stop(stopTime);
+    oscillator.onended = (): void => oscillator.disconnect();
+    return oscillator;
   }
 
   /**

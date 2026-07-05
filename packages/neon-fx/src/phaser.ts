@@ -181,7 +181,7 @@ export class Phaser extends AudioPlugin {
         // Recreate filter chain with new stage count
         this._rebuildFilterChain(Math.round(value));
         break;
-      case 'baseFreq':
+      case 'baseFreq': {
         this._allpassFilters.forEach(filter => {
           this._setAudioParam(filter.frequency, value, rampTime);
         });
@@ -189,6 +189,7 @@ export class Phaser extends AudioPlugin {
         const lfoAmount = (this._params.depth / 100) * value * 0.8;
         this._lfo.setDepth(lfoAmount, rampTime);
         break;
+      }
       case 'mix': {
         const wet = value / 100;
         const dry = 1 - wet;

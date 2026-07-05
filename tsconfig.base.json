@@ -20,7 +20,13 @@
       "@neon/fx": ["./packages/neon-fx/src/index.ts"],
       "@neon/fx/*": ["./packages/neon-fx/src/*"],
       "@neon/cloud": ["./packages/neon-cloud/src/index.ts"],
-      "@neon/cloud/*": ["./packages/neon-cloud/src/*"]
+      "@neon/cloud/*": ["./packages/neon-cloud/src/*"],
+      "@neon/ai": ["./packages/neon-ai/src/index.ts"],
+      "@neon/ai/*": ["./packages/neon-ai/src/*"],
+      "@neon/instruments": ["./packages/neon-instruments/src/index.ts"],
+      "@neon/instruments/*": ["./packages/neon-instruments/src/*"],
+      "@neon/engine": ["./packages/neon-engine/src/index.ts"],
+      "@neon/engine/*": ["./packages/neon-engine/src/*"]
     },
     "typeRoots": ["./node_modules/@types", "./types"]
   },

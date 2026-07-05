@@ -11,7 +11,9 @@ export default defineConfig({
       '@neon/ui': resolve(__dirname, 'packages/neon-ui/src'),
       '@neon/fx': resolve(__dirname, 'packages/neon-fx/src'),
       '@neon/cloud': resolve(__dirname, 'packages/neon-cloud/src'),
-      '@neon/ai': resolve(__dirname, 'packages/neon-ai/src')
+      '@neon/ai': resolve(__dirname, 'packages/neon-ai/src'),
+      '@neon/instruments': resolve(__dirname, 'packages/neon-instruments/src'),
+      '@neon/engine': resolve(__dirname, 'packages/neon-engine/src')
     }
   },
 
@@ -31,6 +33,7 @@ export default defineConfig({
         drums: resolve(__dirname, 'apps/neon-drums/index.html'),
         synth: resolve(__dirname, 'apps/neon-synth/index.html'),
         noise: resolve(__dirname, 'apps/neon-noise/index.html'),
+        studio: resolve(__dirname, 'apps/neon-studio/index.html'),
         'playground-ui': resolve(__dirname, 'playgrounds/ui/index.html'),
         'playground-fx': resolve(__dirname, 'playgrounds/fx/index.html'),
         'playground-cloud': resolve(__dirname, 'playgrounds/cloud/index.html'),

@@ -652,6 +652,14 @@ export interface PianoRollOptions {
     onNoteOff?: (noteIdx: number) => void;
     getFrequency?: (noteIdx: number) => number;
     disabled?: boolean;
+    /**
+     * External clock mode (e.g. the @neon/engine lookahead Transport):
+     * return the continuous playback position in steps (5.4 = inside row 5)
+     * or null when nothing is sounding yet. When provided, the piano roll
+     * has NO internal clock — it never fires onPlay (the app schedules its
+     * own audio) and drives the playhead/falling animation from this value.
+     */
+    externalPosition?: () => number | null;
 }
 
 /** Piano roll component interface */
@@ -691,6 +699,8 @@ export interface PianoRollComponent {
     setDisabled: (value: boolean) => void;
     getState: () => PianoRollState;
     loadState: (state: Partial<PianoRollState>) => void;
+    /** Notes starting at a step (for external-clock apps scheduling audio). */
+    getNotesAtStep: (step: number) => PianoRollNote[];
     render: () => void;
     highlightNoteLabel: (noteIdx: number, active: boolean) => void;
     releaseAllStuckNotes: () => void;
@@ -739,7 +749,8 @@ export function createPianoRoll(options: PianoRollOptions = {}): PianoRollCompon
         onNoteOn = null,
         onNoteOff = null,
         getFrequency = null,
-        disabled = false
+        disabled = false,
+        externalPosition = null
     } = options;
 
     let steps = initialSteps;
@@ -1144,7 +1155,12 @@ export function createPianoRoll(options: PianoRollOptions = {}): PianoRollCompon
         stepsArea.style.position = 'relative';
 
         for (let i = 0; i < totalRenderSteps; i++) {
-            const s = i % steps;
+            // During falling playback rows scroll downward, so the bottom row lands
+            // first: reverse the row->step mapping so step 0 reaches the trigger
+            // line first, matching the ascending playback order.
+            const s = (fallingMode && isPlaying)
+                ? (steps - 1) - (i % steps)
+                : i % steps;
             const stepRow = document.createElement('div');
             stepRow.className = 'neon-piano-roll-step-column';
             stepRow.dataset.step = String(s);
@@ -1395,78 +1411,77 @@ export function createPianoRoll(options: PianoRollOptions = {}): PianoRollCompon
         }
     }
 
-    function triggerStep(stepIndex: number): void {
+    function collectNotesAtStep(stepIndex: number, highlight: boolean): PianoRollNote[] {
         const stepNotes: PianoRollNote[] = [];
         tracks.forEach((track, trackIdx) => {
             if (!enabledTracks.has(trackIdx)) return;
             if (!track[stepIndex]) return;
 
             track[stepIndex].forEach((noteValue, noteIdx) => {
-                if (noteValue === 0) return;
+                // Notes trigger at their start cell; continuation cells (-1) are silent
+                if (noteValue <= 0) return;
 
-                if (fallingMode && vertical) {
-                    const nextStep = stepIndex + 1;
-                    const nextValue = nextStep < steps ? track[nextStep]?.[noteIdx] : 0;
-                    const isNoteEnd = nextValue !== -1;
-
-                    if (isNoteEnd) {
-                        let startStep = stepIndex;
-                        while (startStep > 0 && track[startStep][noteIdx] === -1) {
-                            startStep--;
-                        }
-                        const duration = track[startStep][noteIdx];
-                        if (duration > 0) {
-                            const freq = getFrequency ? getFrequency(noteIdx) : null;
-                            stepNotes.push({ trackIdx, noteIdx, freq, duration });
-                            onKeyHighlight?.(noteIdx, true);
-                            const stepTime = (60 / bpm / 4) * 1000;
-                            const highlightDuration = Math.min(stepTime * duration * 0.9, stepTime * duration - 50);
-                            setTimeout(() => onKeyHighlight?.(noteIdx, false), Math.max(100, highlightDuration));
-                        }
-                    }
-                } else {
-                    if (noteValue > 0) {
-                        const freq = getFrequency ? getFrequency(noteIdx) : null;
-                        const duration = noteValue;
-                        stepNotes.push({ trackIdx, noteIdx, freq, duration });
-                        onKeyHighlight?.(noteIdx, true);
-                        const stepTime = (60 / bpm / 4) * 1000;
-                        const highlightDuration = Math.min(stepTime * duration * 0.9, stepTime * duration - 50);
-                        setTimeout(() => onKeyHighlight?.(noteIdx, false), Math.max(100, highlightDuration));
-                    }
+                const freq = getFrequency ? getFrequency(noteIdx) : null;
+                const duration = noteValue;
+                stepNotes.push({ trackIdx, noteIdx, freq, duration });
+                if (highlight) {
+                    onKeyHighlight?.(noteIdx, true);
+                    const stepTime = (60 / bpm / 4) * 1000;
+                    const highlightDuration = Math.min(stepTime * duration * 0.9, stepTime * duration - 50);
+                    setTimeout(() => onKeyHighlight?.(noteIdx, false), Math.max(100, highlightDuration));
                 }
             });
         });
+        return stepNotes;
+    }
 
-        onPlay?.(stepIndex, stepNotes);
+    function triggerStep(stepIndex: number): void {
+        onPlay?.(stepIndex, collectNotesAtStep(stepIndex, true));
     }
 
     function animateFalling(timestamp: number): void {
         if (!isPlaying) return;
 
-        const stepTime = (60 / bpm / 4) * 1000;
-        const elapsed = timestamp - playStartTime;
-        const totalDuration = stepTime * steps;
+        let continuousProgress: number;
+        if (externalPosition) {
+            // External clock: position comes from the app's transport.
+            const pos = externalPosition();
+            if (pos === null) {
+                animationFrameId = requestAnimationFrame(animateFalling);
+                return;
+            }
+            continuousProgress = pos / steps;
+        } else {
+            const stepTime = (60 / bpm / 4) * 1000;
+            const elapsed = timestamp - playStartTime;
+            const totalDuration = stepTime * steps;
 
-        if (!loop && elapsed >= totalDuration) {
-            stop();
-            return;
+            if (!loop && elapsed >= totalDuration) {
+                stop();
+                return;
+            }
+            continuousProgress = elapsed / totalDuration;
         }
 
         const stepHeight = 20;
         const viewHeight = scrollArea.clientHeight;
         const patternHeight = steps * stepHeight;
 
-        const continuousProgress = elapsed / totalDuration;
         const loopProgress = continuousProgress % 1;
         const exactStep = loopProgress * steps;
-        const stepsIntoLoop = Math.floor(exactStep) % steps;
-        const newStep = (steps - 1 - stepsIntoLoop + steps) % steps;
+        // Steps play in ascending order; the row landing at the trigger line
+        // displays the matching step via the reversed render mapping below.
+        const newStep = Math.floor(exactStep) % steps;
 
         if (newStep !== lastTriggeredStep) {
             currentStep = newStep;
             lastTriggeredStep = newStep;
-            triggerStep(currentStep);
+            if (externalPosition) {
+                // Audio is scheduled by the app; only mirror key highlights.
+                collectNotesAtStep(currentStep, true);
+            } else {
+                triggerStep(currentStep);
+            }
         }
 
         if (stepsAreaElement) {
@@ -1515,6 +1530,23 @@ export function createPianoRoll(options: PianoRollOptions = {}): PianoRollCompon
         timer = setTimeout(() => playTraditional(), stepTime);
     }
 
+    /** Traditional-mode playhead driven by the external transport clock. */
+    function pollTraditionalExternal(): void {
+        if (!isPlaying) return;
+
+        const pos = externalPosition!();
+        if (pos !== null) {
+            const s = Math.floor(pos) % steps;
+            if (s !== lastTriggeredStep) {
+                lastTriggeredStep = s;
+                currentStep = s;
+                collectNotesAtStep(s, true);
+                updatePlayhead();
+            }
+        }
+        animationFrameId = requestAnimationFrame(pollTraditionalExternal);
+    }
+
     function start(): void {
         if (isPlaying) return;
         isPlaying = true;
@@ -1527,16 +1559,23 @@ export function createPianoRoll(options: PianoRollOptions = {}): PianoRollCompon
         onPlayStateChange?.(true);
 
         if (fallingMode && vertical) {
-            const firstStep = steps - 1;
-            currentStep = firstStep;
-            lastTriggeredStep = firstStep;
-            triggerStep(firstStep);
+            if (externalPosition) {
+                animationFrameId = requestAnimationFrame(animateFalling);
+            } else {
+                currentStep = 0;
+                lastTriggeredStep = 0;
+                triggerStep(0);
 
-            playStartTime = performance.now();
-            animationFrameId = requestAnimationFrame(animateFalling);
+                playStartTime = performance.now();
+                animationFrameId = requestAnimationFrame(animateFalling);
+            }
         } else {
             playhead.classList.remove('hidden');
-            playTraditional();
+            if (externalPosition) {
+                pollTraditionalExternal();
+            } else {
+                playTraditional();
+            }
         }
     }
 
@@ -1815,6 +1854,10 @@ export function createPianoRoll(options: PianoRollOptions = {}): PianoRollCompon
         setDisabled(value: boolean): void {
             isDisabled = value;
             wrapper.classList.toggle('disabled', isDisabled);
+        },
+
+        getNotesAtStep(step: number): PianoRollNote[] {
+            return collectNotesAtStep(step, false);
         },
 
         getState(): PianoRollState {

@@ -9,6 +9,8 @@ function injectNeonPackages(): Plugin {
     'neon-ui': process.env.NEON_UI_URL || '/libs/neon-ui.min.js',
     'neon-cloud': process.env.NEON_CLOUD_URL || '/libs/neon-cloud.min.js',
     'neon-ai': process.env.NEON_AI_URL || '/libs/neon-ai.min.js',
+    'neon-instruments': process.env.NEON_INSTRUMENTS_URL || '/libs/neon-instruments.min.js',
+    'neon-engine': process.env.NEON_ENGINE_URL || '/libs/neon-engine.min.js',
   };
 
   return {
@@ -33,7 +35,9 @@ export default defineConfig({
       '@neon/ui': resolve(__dirname, '../../packages/neon-ui/src'),
       '@neon/fx': resolve(__dirname, '../../packages/neon-fx/src'),
       '@neon/cloud': resolve(__dirname, '../../packages/neon-cloud/src'),
-      '@neon/ai': resolve(__dirname, '../../packages/neon-ai/src')
+      '@neon/ai': resolve(__dirname, '../../packages/neon-ai/src'),
+      '@neon/instruments': resolve(__dirname, '../../packages/neon-instruments/src'),
+      '@neon/engine': resolve(__dirname, '../../packages/neon-engine/src')
     }
   },
   server: {
@@ -46,14 +50,16 @@ export default defineConfig({
     cssMinify: false,
     rollupOptions: {
       // Externalize packages for production - they'll be loaded via script tags
-      external: ['@neon/ui', '@neon/fx', '@neon/cloud', '@neon/ai'],
+      external: ['@neon/ui', '@neon/fx', '@neon/cloud', '@neon/ai', '@neon/instruments', '@neon/engine'],
       output: {
         // Map external imports to global variables
         globals: {
           '@neon/ui': 'NeonUI',
           '@neon/fx': 'NeonFx',
           '@neon/cloud': 'NeonCloud',
-          '@neon/ai': 'NeonAi'
+          '@neon/ai': 'NeonAi',
+          '@neon/instruments': 'NeonInstruments',
+          '@neon/engine': 'NeonEngine'
         },
         // Simple filenames in root for easy modification
         entryFileNames: 'scripts.js',

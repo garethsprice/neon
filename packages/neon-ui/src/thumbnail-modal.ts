@@ -258,7 +258,6 @@ export function createThumbnailModal(options: ThumbnailModalOptions): ThumbnailM
   let currentUrl = initialUrl || null;
   let originalUrl = initialUrl || null;
   let originalPrompt = initialPrompt;
-  let isGenerating = false;
   let hasChanges = false;
 
   // Create modal elements
@@ -349,7 +348,6 @@ export function createThumbnailModal(options: ThumbnailModalOptions): ThumbnailM
   }
 
   function setLoading(loading: boolean): void {
-    isGenerating = loading;
     preview.classList.toggle('loading', loading);
     regenBtn.disabled = loading;
     keepBtn.disabled = loading;

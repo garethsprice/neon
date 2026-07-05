@@ -84,8 +84,8 @@ export function setupCloud(room: WebsimSocketInstance, ctx: CloudContext) {
     },
 
     elements: {
-      saveBtn: 'global-save-btn',
-      loadBtn: 'global-load-btn'
+      saveBtn: 'save-btn',
+      loadBtn: 'load-btn'
     }
   });
 

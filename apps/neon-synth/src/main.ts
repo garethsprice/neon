@@ -25,7 +25,6 @@ import { setupCloud, SynthState } from './cloud';
 import { createVisualizer, Visualizer } from './visualizer';
 import {
   loadAiPrompts,
-  getAiPrompts,
   detectGenreFromPrompt,
   detectGenreWithAI,
   generateCreativeBrief,
@@ -35,6 +34,7 @@ import {
   CurrentState
 } from './ai-handler';
 import { DEFAULT_GENRES } from '@neon/ai';
+import { Transport } from '@neon/engine';
 
 // Load AI prompts from JSON file
 loadAiPrompts();
@@ -61,6 +61,9 @@ interface Pattern {
  */
 class SynthApp {
   engine: AudioEngine;
+  /** Shared lookahead transport — the piano roll is display-only now. */
+  transport: Transport | null = null;
+  private lastDisplayedStep = -1;
   walkthroughEnabled: boolean = true;
   knobs: Record<string, KnobComponent> = {};
 
@@ -840,6 +843,24 @@ class SynthApp {
   initPianoRoll(): void {
     const pianoRollContainer = document.getElementById('piano-roll-container');
 
+    // Shared lookahead transport: audio is scheduled at absolute
+    // AudioContext times; the piano roll only renders (external clock).
+    const transport = new Transport(this.engine.ctx, {
+      getPatternLength: () => this.pianoRoll?.steps ?? 16,
+      getSongOrder: () => [],
+      getBpm: () => this.pianoRoll?.bpm || 120
+    });
+    transport.onStep = ev => {
+      const notes = this.pianoRoll.getNotesAtStep(ev.row);
+      const stepDurationSeconds = transport.stepDuration;
+      notes.forEach(({ trackIdx, noteIdx, freq, duration }) => {
+        const frequency = freq || this.keyboard.getFrequency(noteIdx);
+        this.engine.triggerNote(trackIdx, noteIdx, frequency, stepDurationSeconds * duration, ev.time);
+      });
+    };
+    transport.onStop = t => this.engine.silenceAfter(t);
+    this.transport = transport;
+
     this.pianoRoll = createPianoRoll({
       label: 'PIANO ROLL',
       steps: 16,
@@ -853,24 +874,31 @@ class SynthApp {
       showTrackTabs: false,
       showStepNumbers: false,
       fallingMode: true,
+      externalPosition: () => {
+        if (!transport.isPlaying) return null;
+        const now = this.engine.ctx.currentTime;
+        const pos = transport.getPositionAt(now);
+        if (!pos) return null;
+        // continuous sub-row progress for the falling animation
+        const frac = Math.max(0, Math.min(1, (now - pos.time) / transport.stepDuration));
+        if (pos.row !== this.lastDisplayedStep) {
+          this.lastDisplayedStep = pos.row;
+          this.setStep(pos.row + 1);
+        }
+        return pos.row + frac;
+      },
       onTrackSelect: (trackIdx: number) => {
         this.refreshUIForTrack(trackIdx);
-      },
-      onPlay: (stepIndex: number, notes: Array<{ trackIdx: number; noteIdx: number; freq: number | null; duration: number }>) => {
-        this.setStep(stepIndex + 1);
-        const bpm = this.pianoRoll.bpm || 120;
-        const stepDurationSeconds = 60 / bpm / 4;
-        notes.forEach(({ trackIdx, noteIdx, freq, duration }) => {
-          const frequency = freq || this.keyboard.getFrequency(noteIdx);
-          const noteDuration = stepDurationSeconds * duration;
-          this.engine.triggerNote(trackIdx, noteIdx, frequency, noteDuration);
-        });
       },
       onPlayStateChange: (isPlaying: boolean) => {
         this.startBtn.classList.toggle('playing', isPlaying);
         this.setStatus(isPlaying ? 'PLAYING' : 'STOPPED');
         if (isPlaying) {
           this.engine.resume();
+          this.lastDisplayedStep = -1;
+          transport.start();
+        } else {
+          transport.stop();
         }
       },
       onKeyHighlight: (keyIndex: number, active: boolean) => {
@@ -1249,26 +1277,105 @@ class SynthApp {
   async runDemoMode(): Promise<void> {
     showToast('Loading demo track...', 'ai');
 
+    // "Midnight Circuit" - 4 bars of C-minor synthwave (Cm - Ab - Eb - Bb),
+    // one chord per bar across 64 steps. Note indices are semitones above A0
+    // (the fixed root when the keyboard is expanded past 24 keys): C2=15, C4=39, C5=51.
+    type DemoStep = number | [number, number] | null;
+
+    const progression = [
+      { root: 15, third: 42, arp: [39, 42, 46, 51, 54, 51, 46, 42] }, // Cm
+      { root: 23, third: 39, arp: [35, 39, 42, 47, 51, 47, 42, 39] }, // Ab
+      { root: 18, third: 46, arp: [34, 37, 42, 46, 49, 46, 42, 37] }, // Eb
+      { root: 25, third: 41, arp: [37, 41, 44, 49, 53, 49, 44, 41] }  // Bb
+    ];
+
+    // Classic driving eighth-note bass alternating root and octave
+    const bassBar = (root: number): DemoStep[] => {
+      const bar: DemoStep[] = new Array(16).fill(null);
+      for (let i = 0; i < 8; i++) {
+        bar[i * 2] = i % 2 === 0 ? root : root + 12;
+      }
+      return bar;
+    };
+
+    // Sixteenth-note up-down arpeggio, two cycles per bar
+    const arpBar = (cycle: number[]): DemoStep[] =>
+      Array.from({ length: 16 }, (_, s) => cycle[s % 8]);
+
+    const bass = progression.flatMap(c => bassBar(c.root));
+    const arp = progression.flatMap(c => arpBar(c.arp));
+
+    // Pad swell on each chord's third, gated at 12 of 16 steps so each
+    // release tail clears before the next swell instead of stacking into a drone
+    const pad: DemoStep[] = new Array(64).fill(null);
+    progression.forEach((c, bar) => { pad[bar * 16] = [c.third, 12]; });
+
+    // Lead: one rhythmic motif sequenced through the progression, resolving in bar 4
+    const lead: DemoStep[] = new Array(64).fill(null);
+    const leadNotes: [number, number, number][] = [ // [step, note, duration]
+      [0, 51, 3], [3, 49, 1], [4, 46, 4], [8, 46, 2], [10, 49, 2], [12, 51, 4],   // Cm
+      [16, 54, 3], [19, 51, 1], [20, 47, 4], [24, 46, 2], [26, 47, 2], [28, 51, 4], // Ab
+      [32, 58, 3], [35, 56, 1], [36, 54, 4], [40, 53, 2], [42, 54, 2], [44, 56, 4], // Eb
+      [48, 53, 3], [51, 51, 1], [52, 53, 4], [56, 49, 2], [58, 51, 2], [60, 53, 2], [62, 49, 2] // Bb
+    ];
+    leadNotes.forEach(([step, note, dur]) => { lead[step] = dur > 1 ? [note, dur] : note; });
+
+    // Neutral baseline: no detune, insert FX bypassed (saturation/phaser/etc.
+    // add a parallel signal path that doubles a track's level), delay synced
+    // to a dotted eighth at 120 BPM.
+    const demoBaseParams = {
+      detune: 0, filterReso: 1, hpFilterReso: 0,
+      saturationDrive: 0, distortionEnabled: false, bitcrusherEnabled: false,
+      phaserEnabled: false, flangerEnabled: false, spatialEnabled: false,
+      panEnabled: false, panPosition: 50,
+      delayMix: 0, delayTime: 0.375, reverbMix: 0
+    };
+
+    const trackNames = ['LEAD', 'BASS', 'PAD', 'ARP'];
     const demoState = {
-      trackName: 'Neon Demo',
-      trackNames: ['LEAD', 'BASS', 'PAD', 'ARP'],
+      trackName: 'Midnight Circuit',
+      trackDescription: 'Classic synthwave cruise: driving octave bass, glassy sixteenth arps, '
+        + 'warm pad swells and a soaring saw lead over a Cm-Ab-Eb-Bb progression.',
+      trackNames,
       trackParams: {
-        0: { waveType: 'sawtooth', filterCutoff: 2500, attack: 0.1, decay: 0.2, sustain: 0.6, release: 0.4 },
-        1: { waveType: 'square', filterCutoff: 800, attack: 0.01, decay: 0.1, sustain: 0.8, release: 0.2 }
+        // Every audible param is set explicitly so the demo sounds the same
+        // regardless of whatever the knobs were left on beforehand.
+        0: { // LEAD - bright saw with dotted-eighth delay
+          ...demoBaseParams,
+          waveType: 'sawtooth', filterCutoff: 3800, filterReso: 2, hpFilterCutoff: 120,
+          attack: 0.02, decay: 0.25, sustain: 0.55, release: 0.35,
+          delayMix: 0.3, reverbMix: 0.3
+        },
+        1: { // BASS - punchy filtered square, kept dry
+          ...demoBaseParams,
+          waveType: 'square', filterCutoff: 750, filterReso: 1.5, hpFilterCutoff: 25,
+          attack: 0.01, decay: 0.15, sustain: 0.7, release: 0.12,
+          reverbMix: 0.08
+        },
+        2: { // PAD - triangle swell tucked behind the mix, panned left
+          ...demoBaseParams,
+          waveType: 'triangle', filterCutoff: 1200, filterReso: 0.5, hpFilterCutoff: 80,
+          attack: 0.5, decay: 0.4, sustain: 0.5, release: 0.9,
+          delayMix: 0.1, reverbMix: 0.4,
+          panEnabled: true, panPosition: 42
+        },
+        3: { // ARP - plucky resonant saw, echoing right of center
+          ...demoBaseParams,
+          waveType: 'sawtooth', filterCutoff: 2600, filterReso: 4, hpFilterCutoff: 200,
+          attack: 0.01, decay: 0.14, sustain: 0.15, release: 0.18,
+          delayMix: 0.35, reverbMix: 0.2,
+          panEnabled: true, panPosition: 58
+        }
       },
-      globalParams: { bpm: 128, masterVolume: 70 },
-      steps: 32,
-      rootKey: 0,
-      rootOctave: 3,
-      tracks: [
-        [0, null, null, null, 4, null, null, null, 7, null, null, null, 4, null, null, null,
-          0, null, null, null, 4, null, null, null, 7, null, null, null, 4, null, null, null],
-        [0, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null,
-          0, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null]
-      ]
+      globalParams: { bpm: 120 },
+      steps: 64,
+      numKeys: 61,
+      tracks: [lead, bass, pad, arp]
     };
 
     await this.applyState(demoState, 'ALL');
+    // applyState only renames the selected track in ALL mode; the demo names all four
+    this.pianoRoll.setTrackNames(trackNames);
     showToast('Demo track loaded - hit play!', 'ai');
   }
 
