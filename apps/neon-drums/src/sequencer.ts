@@ -1,7 +1,15 @@
 /**
  * Sequencer - Pattern-based drum sequencer with track arrangement
+ *
+ * Timing runs on the shared @neon/engine Transport (lookahead scheduler):
+ * audio is scheduled at absolute AudioContext times (sample-accurate swing,
+ * scale, and flams), while the legacy UI callbacks (onStepChange,
+ * onInstrumentTrigger, ...) fire from a rAF loop at the moment each row
+ * actually SOUNDS, preserving the pre-transport callback contract.
+ * The serialized format is untouched.
  */
 
+import { Transport, type StepEvent } from '@neon/engine';
 import type { AudioEngine, FXParams } from './audio-engine';
 
 export type PatternId = string;
@@ -67,7 +75,6 @@ export class Sequencer {
   onInstrumentTrigger: ((inst: InstrumentKey, stepIdx: number) => void) | null = null;
   onTrackUpdate: ((measure?: number, id?: PatternId | null) => void) | null = null;
 
-  bpm = 120;
   isPlaying = false;
   currentStep = 0;
   numSteps = 16;
@@ -87,7 +94,9 @@ export class Sequencer {
   trackSkill: string | null = null;
   thumbnailUrl: string | null = null;
   thumbnailPrompt: string | null = null;
-  timerId: ReturnType<typeof setTimeout> | null = null;
+  transport: Transport;
+  private uiRafId: number | null = null;
+  private lastUiKey = '';
 
   constructor(audioEngine: AudioEngine) {
     this.audio = audioEngine;
@@ -99,7 +108,24 @@ export class Sequencer {
       get: () => this.patterns[this.currentPatternId]?.flams
     });
 
+    this.transport = new Transport(this.audio.ctx, {
+      getPatternLength: id => this.patterns[id]?.numSteps ?? 16,
+      getSongOrder: () => this.songOrder(),
+      getStepScale: id => this.patterns[id]?.scale || 1,
+      getSwing: id => this.patterns[id]?.shuffle || 0
+    });
+    this.transport.onStep = ev => this.scheduleStep(ev);
+    this.transport.onStop = t => this.audio.silenceAfter(t);
+
     this.initData();
+  }
+
+  get bpm(): number {
+    return this.transport.bpm;
+  }
+
+  set bpm(value: number) {
+    this.transport.bpm = value;
   }
 
   get tracks(): Record<InstrumentKey, number[]> {
@@ -529,95 +555,140 @@ export class Sequencer {
     }
   }
 
+  /**
+   * The transport's song order for the active playback mode:
+   * track (song) mode plays the leading non-null run of trackMeasures
+   * (the legacy sequencer wrapped at the first null); pattern mode with a
+   * chain loops the chain.
+   */
+  private songOrder(): PatternId[] {
+    if (this.isTrackPlaying) {
+      const order: PatternId[] = [];
+      for (const measure of this.trackMeasures) {
+        if (measure === null) break;
+        order.push(measure);
+      }
+      return order;
+    }
+    return this.patternChain;
+  }
+
   start(): void {
     if (this.isPlaying) return;
     this.isPlaying = true;
     this.currentStep = 0;
-    this.schedule();
+    this.lastUiKey = '';
+    void this.audio.ctx.resume();
+
+    if (this.isTrackPlaying) {
+      this.transport.playMode = 'song';
+      this.transport.loopSong = true;
+      this.transport.start(0);
+    } else if (this.patternChain.length > 1) {
+      this.transport.playMode = 'song';
+      this.transport.loopSong = true;
+      this.transport.start(Math.max(0, this.currentChainIndex));
+    } else {
+      this.transport.playMode = 'pattern';
+      this.transport.queuePattern(this.currentPatternId); // immediate when stopped
+      this.transport.start();
+    }
+    this.startUiSync();
   }
 
   stop(): void {
     this.isPlaying = false;
-    if (this.timerId) clearTimeout(this.timerId);
+    this.transport.stop(); // onStop cancels hits inside the lookahead window
+    if (this.uiRafId !== null) {
+      cancelAnimationFrame(this.uiRafId);
+      this.uiRafId = null;
+    }
     this.currentStep = 0;
   }
 
-  schedule(): void {
-    if (!this.isPlaying && !this.isTrackPlaying) return;
+  /**
+   * Schedule one row's audio at its absolute time. Reads the SCHEDULING
+   * pattern (ev.patternId) — currentPatternId tracks the sounding pattern
+   * and may lag by up to the lookahead window.
+   */
+  private scheduleStep(ev: StepEvent): void {
+    const pattern = this.patterns[ev.patternId];
+    if (!pattern) return;
+    const step = ev.row;
 
-    if (this.tracks['bassDrum'] && this.tracks['bassDrum'][this.currentStep] > 0) {
+    if (pattern.tracks['bassDrum'] && pattern.tracks['bassDrum'][step] > 0) {
       this.audio.triggerSidechain('bassDrum', (inst, param) => {
         const params = this.trackParams[inst];
         return params ? params[param] : false;
-      });
+      }, ev.time);
     }
 
-    Object.keys(this.tracks).forEach(instKey => {
-      const hitType = this.tracks[instKey][this.currentStep];
-      const isFlam = this.flams[instKey][this.currentStep];
+    Object.keys(pattern.tracks).forEach(instKey => {
+      const hitType = pattern.tracks[instKey][step];
+      if (hitType <= 0) return;
 
-      if (hitType > 0) {
-        const params = { ...this.trackParams[instKey] };
-        if (hitType === 2) {
-          params.level = Math.min(100, params.level + 25);
-        }
+      const params = { ...this.trackParams[instKey] };
+      if (hitType === 2) {
+        params.level = Math.min(100, params.level + 25);
+      }
 
-        if (isFlam) {
-          const graceParams = { ...params, level: params.level * 0.5 };
-          this.audio.play(instKey, graceParams);
-          const flamDelay = this.trackParams[instKey].flamAmount || 20;
-          setTimeout(() => {
-            this.audio.play(instKey, params);
-            if (this.onInstrumentTrigger) this.onInstrumentTrigger(instKey, this.currentStep);
-          }, flamDelay);
-        } else {
-          this.audio.play(instKey, params);
-          if (this.onInstrumentTrigger) this.onInstrumentTrigger(instKey, this.currentStep);
-        }
+      if (pattern.flams[instKey][step]) {
+        const graceParams = { ...params, level: params.level * 0.5 };
+        void this.audio.play(instKey, graceParams, ev.time);
+        const flamDelay = this.trackParams[instKey].flamAmount || 20;
+        void this.audio.play(instKey, params, ev.time + flamDelay / 1000);
+      } else {
+        void this.audio.play(instKey, params, ev.time);
       }
     });
+  }
 
-    if (this.onStepChange) this.onStepChange(this.currentStep);
-
-    const pattern = this.patterns[this.currentPatternId];
-    const scaleMultiplier = pattern.scale || 1.0;
-    const shuffleAmount = pattern.shuffle || 0;
-    const baseStepDuration = (60000 / this.bpm / 4) * scaleMultiplier;
-
-    const delayMs = baseStepDuration * (shuffleAmount / 100) * 0.5;
-
-    let nextInterval = baseStepDuration;
-    if (this.currentStep % 2 === 0) {
-      nextInterval += delayMs;
-    } else {
-      nextInterval -= delayMs;
-    }
-
-    this.currentStep = (this.currentStep + 1);
-
-    if (this.currentStep >= this.numSteps) {
-      this.currentStep = 0;
-
-      if (this.isTrackPlaying) {
-        this.currentTrackMeasure++;
-        if (this.currentTrackMeasure >= 96 || this.trackMeasures[this.currentTrackMeasure] === null) {
-          this.currentTrackMeasure = 0;
-        }
-
-        const nextId = this.trackMeasures[this.currentTrackMeasure];
-        if (nextId) {
-          this.switchPattern(nextId, true);
-          if (this.onPatternChange) this.onPatternChange(nextId);
-        }
-        if (this.onTrackUpdate) this.onTrackUpdate(this.currentTrackMeasure, nextId);
-      } else if (this.patternChain.length > 1) {
-        this.currentChainIndex = (this.currentChainIndex + 1) % this.patternChain.length;
-        const nextId = this.patternChain[this.currentChainIndex];
-        this.switchPattern(nextId, true);
-        if (this.onPatternChange) this.onPatternChange(nextId);
+  /**
+   * Fire the legacy UI callbacks when rows actually sound (audio is
+   * scheduled up to 150ms ahead; the UI must not lead the ear).
+   */
+  private startUiSync(): void {
+    const loop = (): void => {
+      if (!this.isPlaying) {
+        this.uiRafId = null;
+        return;
       }
-    }
+      const pos = this.transport.getPositionAt(this.audio.ctx.currentTime);
+      if (pos) {
+        const key = `${pos.songPos ?? '-'}:${pos.patternId}:${pos.row}`;
+        if (key !== this.lastUiKey) {
+          this.lastUiKey = key;
 
-    this.timerId = setTimeout(() => this.schedule(), nextInterval);
+          if (pos.patternId !== this.currentPatternId) {
+            this.switchPattern(pos.patternId, true);
+            if (this.onPatternChange) this.onPatternChange(pos.patternId);
+          }
+          if (pos.songPos !== null) {
+            if (this.isTrackPlaying && pos.songPos !== this.currentTrackMeasure) {
+              this.currentTrackMeasure = pos.songPos;
+              if (this.onTrackUpdate) {
+                this.onTrackUpdate(pos.songPos, this.trackMeasures[pos.songPos] ?? pos.patternId);
+              }
+            } else if (!this.isTrackPlaying && this.patternChain.length > 1) {
+              this.currentChainIndex = pos.songPos;
+            }
+          }
+
+          this.currentStep = pos.row;
+          if (this.onStepChange) this.onStepChange(pos.row);
+
+          const pattern = this.patterns[pos.patternId];
+          if (pattern && this.onInstrumentTrigger) {
+            Object.keys(pattern.tracks).forEach(instKey => {
+              if (pattern.tracks[instKey][pos.row] > 0) {
+                this.onInstrumentTrigger!(instKey, pos.row);
+              }
+            });
+          }
+        }
+      }
+      this.uiRafId = requestAnimationFrame(loop);
+    };
+    this.uiRafId = requestAnimationFrame(loop);
   }
 }

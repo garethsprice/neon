@@ -11,7 +11,10 @@
   "dependencies": {
     "@neon/ui": "*",
     "@neon/fx": "*",
-    "@neon/cloud": "*"
+    "@neon/cloud": "*",
+    "@neon/ai": "*",
+    "@neon/engine": "*",
+    "@neon/instruments": "*"
   },
   "devDependencies": {
     "typescript": "^5.3.3",

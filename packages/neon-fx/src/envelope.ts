@@ -236,6 +236,44 @@ export class Envelope {
   }
 
   /**
+   * Schedule a complete one-shot envelope at an absolute AudioContext time
+   * (for lookahead sequencing). Unlike trigger(), the whole ADSR lifecycle
+   * is pre-scheduled with absolute times on an INDEPENDENT gain node — it
+   * never enters the per-noteId map, so notes queued inside a lookahead
+   * window cannot cancel each other or disturb held noteOn/noteOff voices.
+   * Note: when duration is shorter than attack+decay, the release starts
+   * after the decay completes (the legacy trigger() released mid-attack).
+   * @param duration Hold duration in seconds before release
+   * @param time Absolute start time (>= ctx.currentTime)
+   * @returns The envelope gain node (for cancellation on transport stop)
+   */
+  triggerAt(duration: number, time: number): GainNode {
+    const { attack, decay, sustain, release } = this._params;
+
+    const envelope = this.ctx.createGain();
+    envelope.gain.setValueAtTime(0, time);
+    const attackEnd = time + attack;
+    envelope.gain.linearRampToValueAtTime(1, attackEnd);
+    envelope.gain.linearRampToValueAtTime(sustain, attackEnd + decay);
+
+    const releaseStart = Math.max(time + duration, attackEnd + decay);
+    envelope.gain.setValueAtTime(sustain, releaseStart);
+    envelope.gain.exponentialRampToValueAtTime(0.001, releaseStart + release);
+    envelope.gain.setValueAtTime(0, releaseStart + release + 0.001);
+
+    this.input.connect(envelope);
+    envelope.connect(this.output);
+
+    // GC only — audio is fully scheduled above, so late timers are harmless.
+    const totalMs = (releaseStart + release - this.ctx.currentTime) * 1000 + 100;
+    setTimeout(() => {
+      envelope.disconnect();
+    }, Math.max(0, totalMs));
+
+    return envelope;
+  }
+
+  /**
    * Immediately stop all active envelopes.
    */
   allNotesOff(): void {

@@ -104,6 +104,8 @@ export class AudioEngine {
   globalParams: GlobalParams;
   trackParams: TrackParams[];
   private noteTrackMap: Map<number, number> = new Map();
+  /** Lookahead-scheduled one-shots — lets stop cancel the window. */
+  private scheduledNotes: Array<{ osc: OscillatorNode; env: GainNode; startTime: number }> = [];
 
   constructor() {
     // Use 'playback' latency hint for more buffer room (reduces crackling)
@@ -543,9 +545,28 @@ export class AudioEngine {
     this.noteTrackMap.delete(note);
   }
 
-  triggerNote(trackIdx: number, _noteIndex: number, freq: number, durationSeconds: number = 0.1): void {
+  /**
+   * Play a sequenced one-shot note. When `time` is given (absolute
+   * AudioContext timestamp from the lookahead transport), the voice and its
+   * complete envelope are pre-scheduled sample-accurately via independent
+   * nodes; otherwise the legacy immediate path runs (previews, walkthrough).
+   */
+  triggerNote(trackIdx: number, _noteIndex: number, freq: number, durationSeconds: number = 0.1, time?: number): void {
     const chain = this.trackChains.get(trackIdx);
     if (!chain) return;
+
+    if (time !== undefined) {
+      const stopTime = time + durationSeconds + chain.envelope.release + 0.05;
+      const osc = chain.oscillator.triggerVoice(freq, time, stopTime);
+      const env = chain.envelope.triggerAt(durationSeconds, time);
+      const entry = { osc, env, startTime: time };
+      this.scheduledNotes.push(entry);
+      osc.onended = (): void => {
+        osc.disconnect();
+        this.scheduledNotes = this.scheduledNotes.filter(n => n !== entry);
+      };
+      return;
+    }
 
     const noteId = Math.floor(freq * 1000) + trackIdx * 100000;
 
@@ -554,5 +575,20 @@ export class AudioEngine {
 
     const totalTime = durationSeconds + chain.envelope.release + 0.05;
     chain.oscillator.stopAfter(noteId, totalTime);
+  }
+
+  /**
+   * Cancel notes scheduled after `time` (the lookahead window on transport
+   * stop). Notes already sounding ring out, matching the legacy stop.
+   */
+  silenceAfter(time?: number): void {
+    const at = time ?? this.ctx.currentTime;
+    for (const note of this.scheduledNotes) {
+      if (note.startTime > at) {
+        note.osc.stop(at);
+        note.env.gain.cancelScheduledValues(at);
+        note.env.gain.setValueAtTime(0, at);
+      }
+    }
   }
 }

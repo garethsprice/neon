@@ -110,6 +110,8 @@ export class AudioEngine {
   masterLimiter: Limiter;
   openHiHatGainNode: GainNode | null = null;
   spriteBuffer: AudioBuffer | null = null;
+  /** Hits scheduled via play() — lets stop cancel the lookahead window. */
+  private activeHits: Array<{ source: AudioBufferSourceNode; startTime: number }> = [];
 
   constructor(options: AudioEngineOptions = {}) {
     this.ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -413,8 +415,19 @@ export class AudioEngine {
     return this.masterLimiter.reduction;
   }
 
-  triggerSidechain(sourceInstrumentKey: string, getParamValueFn: (inst: string, param: string) => unknown): void {
-    const now = this.ctx.currentTime;
+  /**
+   * Duck other instruments from a kick hit. `time` is an absolute
+   * AudioContext timestamp (defaults to now for immediate pad hits).
+   * Events arrive in time order from the lookahead transport, so plain
+   * scheduling suffices — no cancelScheduledValues, which would erase
+   * dips already scheduled inside the lookahead window.
+   */
+  triggerSidechain(
+    sourceInstrumentKey: string,
+    getParamValueFn: (inst: string, param: string) => unknown,
+    time?: number
+  ): void {
+    const at = time ?? this.ctx.currentTime;
     this.chains.forEach((chain, targetKey) => {
       if (targetKey === sourceInstrumentKey) return;
 
@@ -425,24 +438,27 @@ export class AudioEngine {
 
         const targetGain = 1.0 - amount;
 
-        chain.sidechainGain.gain.cancelScheduledValues(now);
-        chain.sidechainGain.gain.setTargetAtTime(targetGain, now, 0.005);
-        chain.sidechainGain.gain.setTargetAtTime(1.0, now + 0.01, release);
+        chain.sidechainGain.gain.setTargetAtTime(targetGain, at, 0.005);
+        chain.sidechainGain.gain.setTargetAtTime(1.0, at + 0.01, release);
       }
     });
   }
 
-  async play(instrumentKey: string, params: PlayParams = {}): Promise<void> {
+  /**
+   * Play a hit. `time` is an absolute AudioContext timestamp for
+   * sample-accurate sequencing (defaults to now for immediate pad hits).
+   * Assumes sequenced callers schedule in non-decreasing time order.
+   */
+  async play(instrumentKey: string, params: PlayParams = {}, time?: number): Promise<void> {
     if (!this.isLoaded || !this.spriteBuffer) return;
 
-    const now = this.ctx.currentTime;
+    const when = time ?? this.ctx.currentTime;
     if (this.ctx.state === 'suspended') {
       await this.ctx.resume();
     }
 
     if (instrumentKey === 'closedHiHat' && this.openHiHatGainNode) {
-      this.openHiHatGainNode.gain.cancelScheduledValues(now);
-      this.openHiHatGainNode.gain.setTargetAtTime(0, now, 0.005);
+      this.openHiHatGainNode.gain.setTargetAtTime(0, when, 0.005);
       this.openHiHatGainNode = null;
     }
 
@@ -456,12 +472,11 @@ export class AudioEngine {
 
     const gainNode = this.ctx.createGain();
     const level = (params.level !== undefined) ? (params.level / 100) : 0.8;
-    gainNode.gain.setValueAtTime(level, now);
+    gainNode.gain.setValueAtTime(level, when);
 
     if (instrumentKey === 'openHiHat') {
       if (this.openHiHatGainNode) {
-        this.openHiHatGainNode.gain.cancelScheduledValues(now);
-        this.openHiHatGainNode.gain.setTargetAtTime(0, now, 0.005);
+        this.openHiHatGainNode.gain.setTargetAtTime(0, when, 0.005);
       }
       this.openHiHatGainNode = gainNode;
     }
@@ -475,6 +490,28 @@ export class AudioEngine {
       gainNode.connect(this.masterGain);
     }
 
-    source.start(now, startMs / 1000, durMs / 1000);
+    source.start(when, startMs / 1000, durMs / 1000);
+
+    const hit = { source, startTime: when };
+    this.activeHits.push(hit);
+    source.onended = (): void => {
+      this.activeHits = this.activeHits.filter(h => h !== hit);
+      if (this.openHiHatGainNode === gainNode) {
+        this.openHiHatGainNode = null;
+      }
+    };
+  }
+
+  /**
+   * Cancel hits scheduled after `time` (the lookahead window on stop).
+   * Hits already sounding ring out, matching the pre-transport behavior.
+   */
+  silenceAfter(time?: number): void {
+    const at = time ?? this.ctx.currentTime;
+    for (const hit of this.activeHits) {
+      if (hit.startTime > at) {
+        hit.source.stop(at);
+      }
+    }
   }
 }
