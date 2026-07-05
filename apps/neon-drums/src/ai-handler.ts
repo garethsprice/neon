@@ -170,6 +170,13 @@ export interface AIGenerationData {
   reasoning?: string[];
 }
 
+// Suggestion/brief responses are inserted directly into input fields as text.
+// A model (or the local stub) echoing a JSON payload must never land there. Exported for testing.
+export function looksLikeJsonBlob(text: string): boolean {
+  const t = text.trim();
+  return t.startsWith('{') || t.startsWith('[') || t.startsWith('```');
+}
+
 // Exported for testing
 export function isDiff(val: unknown, def: unknown): boolean {
   if (val === def) return false;
@@ -498,6 +505,7 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
       const suggestion = await websim.chat.completions.create({
         messages: [{ role: "user", content: promptToUse }],
       });
+      if (looksLikeJsonBlob(suggestion.content)) throw new Error('AI returned JSON instead of a text suggestion');
       const prompt = suggestion.content.trim().replace(/['"]/g, '');
       if (elements.aiPrompt) elements.aiPrompt.value = prompt;
       showToast(`Suggested: "${prompt}"`, 'info');
@@ -519,6 +527,7 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
       const suggestion = await websim.chat.completions.create({
         messages: [{ role: "user", content: aiPrompts.demo }],
       });
+      if (looksLikeJsonBlob(suggestion.content)) throw new Error('AI returned JSON instead of a text prompt');
       if (elements.aiPrompt) elements.aiPrompt.value = suggestion.content.trim().replace(/['"]/g, '');
     } catch {
       const fallbacks = ['Driving Berlin techno', 'Deep hypnotic groove', 'Industrial breakbeat', 'Acid house energy'];
@@ -584,6 +593,7 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
       }
 
       const creativeBrief = briefResponse.content.trim().replace(/^["']|["']$/g, '');
+      if (looksLikeJsonBlob(creativeBrief)) throw new Error('AI returned JSON instead of a creative brief');
       sequencer.trackDescription = creativeBrief;
 
       // Stream the creative brief word by word
@@ -754,7 +764,9 @@ export async function handleAiGeneration(ctx: AIContext): Promise<void> {
         const suggestion = await websim.chat.completions.create({
           messages: [{ role: "user", content: suggestPrompt }],
         });
-        if (elements.aiPrompt) elements.aiPrompt.value = suggestion.content.trim().replace(/['"]/g, '');
+        if (elements.aiPrompt && !looksLikeJsonBlob(suggestion.content)) {
+          elements.aiPrompt.value = suggestion.content.trim().replace(/['"]/g, '');
+        }
         updateAiButtonText(elements, sequencer, aiModes, state);
       } catch {
         // Silently ignore suggestion errors
