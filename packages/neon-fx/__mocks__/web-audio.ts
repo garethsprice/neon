@@ -486,6 +486,62 @@ export class MockAudioDestinationNode {
 }
 
 /**
+ * Mock AudioBufferSourceNode
+ */
+export class MockAudioBufferSourceNode {
+  context: MockAudioContext;
+  buffer: MockAudioBuffer | null;
+  loop: boolean;
+  playbackRate: MockAudioParam;
+  detune: MockAudioParam;
+  onended: (() => void) | null;
+  _connections: MockConnection[];
+  _started: boolean;
+  _stopped: boolean;
+  _startTime?: number;
+  _startOffset?: number;
+  _startDuration?: number;
+  _stopTime?: number;
+
+  constructor(context: MockAudioContext) {
+    this.context = context;
+    this.buffer = null;
+    this.loop = false;
+    this.playbackRate = new MockAudioParam(1);
+    this.detune = new MockAudioParam(0);
+    this.onended = null;
+    this._connections = [];
+    this._started = false;
+    this._stopped = false;
+  }
+
+  connect(destination: unknown, outputIndex?: number, inputIndex?: number): unknown {
+    this._connections.push({ destination, outputIndex, inputIndex });
+    return destination;
+  }
+
+  disconnect(destination?: unknown): void {
+    if (destination) {
+      this._connections = this._connections.filter(c => c.destination !== destination);
+    } else {
+      this._connections = [];
+    }
+  }
+
+  start(when?: number, offset?: number, duration?: number): void {
+    this._started = true;
+    this._startTime = when;
+    this._startOffset = offset;
+    this._startDuration = duration;
+  }
+
+  stop(when?: number): void {
+    this._stopped = true;
+    this._stopTime = when;
+  }
+}
+
+/**
  * Mock AudioBuffer
  */
 export class MockAudioBuffer {
@@ -607,6 +663,12 @@ export class MockAudioContext {
 
   createBuffer(numberOfChannels: number, length: number, sampleRate: number): MockAudioBuffer {
     return new MockAudioBuffer({ numberOfChannels, length, sampleRate });
+  }
+
+  createBufferSource(): MockAudioBufferSourceNode {
+    const node = new MockAudioBufferSourceNode(this);
+    this._nodes.push(node);
+    return node;
   }
 
   decodeAudioData(_arrayBuffer: ArrayBuffer): Promise<MockAudioBuffer> {

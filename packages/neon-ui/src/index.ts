@@ -92,6 +92,7 @@ export type {
 } from './keyboard';
 
 // Tracker - Step sequencer/tracker
+/** @deprecated superseded by createTrackerGrid (passive, keyboard-driven) */
 export { createTracker } from './tracker';
 export type {
   TrackerOptions,
@@ -99,6 +100,46 @@ export type {
   TrackerState,
   StepNote
 } from './tracker';
+
+// Tracker Grid v2 - Passive multi-channel tracker for Neon Studio
+export { createTrackerGrid } from './tracker-grid';
+export type {
+  TrackerCell,
+  TrackerGridChannel,
+  TrackerGridOptions,
+  TrackerGridComponent
+} from './tracker-grid';
+
+// Order List - Song order editor for Neon Studio
+export { createOrderList } from './order-list';
+export type {
+  OrderListOptions,
+  OrderListComponent
+} from './order-list';
+
+// FX Chain - Editable FX chain for channel racks
+export { createFxChain } from './fx-chain';
+export type {
+  FxChainPluginDescriptor,
+  FxChainSlotState,
+  FxChainOptions,
+  FxChainComponent
+} from './fx-chain';
+
+// Channel Strip - Compact rack card for Neon Studio
+export { createChannelStrip } from './channel-strip';
+export type {
+  ChannelStripOptions,
+  ChannelStripComponent
+} from './channel-strip';
+
+// Mod Matrix - Source -> target -> depth modulation routing
+export { createModMatrix } from './mod-matrix';
+export type {
+  ModMatrixRoute,
+  ModMatrixOptions,
+  ModMatrixComponent
+} from './mod-matrix';
 
 // Piano Roll - Vertical piano roll editor
 export { createPianoRoll } from './piano-roll';

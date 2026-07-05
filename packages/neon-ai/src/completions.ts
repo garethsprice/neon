@@ -100,7 +100,13 @@ export async function completeJSON<T = unknown>(
   systemPrompt: string,
   userPrompt: string
 ): Promise<T> {
-  const response = await completeWithSystem(systemPrompt, userPrompt, { json: true });
+  // OpenAI's json_object response_format rejects requests unless the word
+  // "json" appears in the messages; guarantee it for all callers.
+  const mentionsJson = /json/i.test(systemPrompt) || /json/i.test(userPrompt);
+  const system = mentionsJson
+    ? systemPrompt
+    : `${systemPrompt}\n\nRespond with a valid JSON object.`;
+  const response = await completeWithSystem(system, userPrompt, { json: true });
   return JSON.parse(response) as T;
 }
 

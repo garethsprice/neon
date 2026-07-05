@@ -10,6 +10,13 @@ export interface ParameterDefinition {
   default: number;
   unit?: string;
   scale?: 'linear' | 'log';
+  /**
+   * True when the declared unit maps 1:1 onto a backing AudioParam,
+   * making the param safe for audio-rate modulation (LFO.connect).
+   * Params without this flag can still be modulated at control rate
+   * via setModulatedParam.
+   */
+  modulatable?: boolean;
 }
 
 export interface PluginState {

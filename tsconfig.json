@@ -4,8 +4,12 @@
     { "path": "./packages/neon-fx" },
     { "path": "./packages/neon-ui" },
     { "path": "./packages/neon-cloud" },
+    { "path": "./packages/neon-ai" },
+    { "path": "./packages/neon-instruments" },
+    { "path": "./packages/neon-engine" },
     { "path": "./apps/neon-drums" },
     { "path": "./apps/neon-synth" },
-    { "path": "./apps/neon-noise" }
+    { "path": "./apps/neon-noise" },
+    { "path": "./apps/neon-studio" }
   ]
 }

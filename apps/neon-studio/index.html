@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEON STUDIO - Modular Tracker Composer</title>
+    <link rel="stylesheet" href="./public/style.css">
+</head>
+<body>
+    <div id="app">
+        <header id="transport-bar">
+            <div class="brand">NEON STUDIO</div>
+            <div class="transport-controls">
+                <button id="play-btn" class="transport-btn" title="Play/Stop (Space)">&#9654; PLAY</button>
+                <button id="mode-btn" class="transport-btn" title="Pattern/Song mode (Shift+Space)">PATT</button>
+                <label class="bpm-label">BPM
+                    <input id="bpm-input" type="number" min="20" max="300" value="120">
+                </label>
+                <label class="bpm-label">SWING
+                    <input id="swing-input" type="number" min="0" max="100" value="0">
+                </label>
+                <div id="position-display" class="position-display">--</div>
+                <button id="stage-btn" class="transport-btn" title="Toggle tracker/mixer view">MIX</button>
+            </div>
+            <div class="transport-right">
+                <button id="global-save-btn" class="transport-btn">SAVE</button>
+                <button id="global-load-btn" class="transport-btn">LOAD</button>
+            </div>
+        </header>
+
+        <div id="main-layout">
+            <aside id="left-rail">
+                <div id="order-list-mount"></div>
+                <div id="pattern-bank-mount"></div>
+            </aside>
+
+            <main id="center-stage">
+                <div id="tracker-mount"></div>
+                <div id="mixer-mount" style="display:none"></div>
+            </main>
+
+            <aside id="ai-rail">
+                <div class="ai-rail-header">AI COPILOT</div>
+                <div class="ai-mode-row">
+                    <span class="ai-mode-chip" id="ai-mode-chip">PATTERN</span>
+                </div>
+                <textarea id="ai-prompt" rows="3"
+                    placeholder="Describe a groove... e.g. 'dark warehouse techno with a rolling bassline'"></textarea>
+                <button id="ai-generate-btn" class="ai-generate-btn">GENERATE</button>
+                <button id="ai-compose-btn" class="ai-generate-btn compose"
+                    title="One prompt, full song: sound design, patterns, arrangement, and mix in sequence">◆ COMPOSE</button>
+                <div id="ai-feed" class="ai-feed"></div>
+            </aside>
+        </div>
+
+        <footer id="rack-strip">
+            <div id="rack-mount" class="rack-row"></div>
+        </footer>
+    </div>
+
+    <script type="module" src="../../tools/websim-stub/websim.js"></script>
+    <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

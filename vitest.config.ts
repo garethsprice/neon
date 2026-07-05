@@ -18,7 +18,13 @@ export default defineConfig({
     alias: {
       '@neon-ui': resolve(__dirname, 'packages/neon-ui/src'),
       '@neon-fx': resolve(__dirname, 'packages/neon-fx/src'),
-      '@neon-cloud': resolve(__dirname, 'packages/neon-cloud/src')
+      '@neon-cloud': resolve(__dirname, 'packages/neon-cloud/src'),
+      '@neon/ui': resolve(__dirname, 'packages/neon-ui/src'),
+      '@neon/fx': resolve(__dirname, 'packages/neon-fx/src'),
+      '@neon/cloud': resolve(__dirname, 'packages/neon-cloud/src'),
+      '@neon/ai': resolve(__dirname, 'packages/neon-ai/src'),
+      '@neon/instruments': resolve(__dirname, 'packages/neon-instruments/src'),
+      '@neon/engine': resolve(__dirname, 'packages/neon-engine/src')
     }
   }
 });

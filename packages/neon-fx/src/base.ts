@@ -139,6 +139,22 @@ export class AudioPlugin implements AudioPluginInterface {
   }
 
   /**
+   * Apply a modulated value to the audio nodes WITHOUT touching the stored
+   * parameter state. Used by modulation engines (LFO/envelope routing) so
+   * that serialize() keeps returning the user's base value while the audible
+   * value wobbles around it. Clamped to the parameter's declared range.
+   */
+  setModulatedParam(name: string, value: number, rampTime: number = 0): void {
+    const def = (this.constructor as typeof AudioPlugin).parameterDefinitions.find(
+      d => d.name === name
+    );
+    if (def) {
+      value = Math.max(def.min ?? -Infinity, Math.min(def.max ?? Infinity, value));
+    }
+    this._applyParam(name, value, rampTime);
+  }
+
+  /**
    * Apply parameter change to audio nodes (override in subclass)
    */
   protected _applyParam(_name: string, _value: number, _rampTime: number): void {

@@ -8,7 +8,7 @@ import { AudioEngine } from './audio-engine';
 import { Sequencer, type PatternId } from './sequencer';
 import { showToast, createKnobElement, el, queryAll } from '@neon/ui';
 import { setupCloud } from './cloud';
-import { handleAiGeneration, updateAiButtonText, generateTrackThumbnail, openThumbnailModal, type Elements, type AppState, type AIPrompts } from './ai-handler';
+import { handleAiGeneration, updateAiButtonText, openThumbnailModal, type Elements, type AppState, type AIPrompts } from './ai-handler';
 import { createDrumsVisualizer, type NeonVisualizer } from './visualizer';
 
 let audioEngine: AudioEngine;

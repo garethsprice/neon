@@ -113,12 +113,19 @@
             throw new Error('OpenAI API key not configured');
         }
 
+        const model = openaiConfig.chatModel || 'gpt-4o-mini';
+        const isReasoningModel = model.startsWith('o1');
+
         const body = {
-            model: openaiConfig.chatModel || 'gpt-4o-mini',
+            model: model,
             messages: messages,
-            temperature: options.temperature ?? 0.7,
-            max_tokens: options.max_tokens ?? 16384
+            max_completion_tokens: options.max_tokens ?? 16384
         };
+
+        // Add temperature only for models that support it (not o1/o1-preview)
+        if (!isReasoningModel) {
+            body.temperature = options.temperature ?? 0.7;
+        }
 
         // Handle JSON mode
         if (options.json || options.response_format?.type === 'json_object') {
@@ -306,6 +313,59 @@
             // keys - a keyword fallback checked first would misroute synth calls to the drum shape.
             const isSynthGeneration = lowerSystem.includes('synth sound designer');
             const isDrumGeneration = lowerSystem.includes('drum programmer') || lowerSystem.includes('tr-909');
+            const isStudioGeneration = lowerSystem.includes('neon studio producer');
+
+            // Neon Studio generation - routed FIRST on its own marker so the
+            // studio's prompts never fall through to the synth/drums shapes.
+            if (isStudioGeneration) {
+                if (lowerSystem.includes('studio arrangement mode')) {
+                    return JSON.stringify({
+                        order: ['A', 'A', 'B', 'B', 'A', 'A'],
+                        reasoning: ['AABB structure with a return to A', 'Repetition builds familiarity']
+                    });
+                }
+                if (lowerSystem.includes('studio sound design mode')) {
+                    return JSON.stringify({
+                        channels: {
+                            ch2: {
+                                params: { cutoff: 700, resonance: 8 },
+                                fxChain: [{ pluginId: 'delay', params: { time: 375, feedback: 35, mix: 25 } }]
+                            }
+                        },
+                        reasoning: ['Squelchy low cutoff with resonance', 'Dotted delay for movement']
+                    });
+                }
+                if (lowerSystem.includes('studio mix mode')) {
+                    return JSON.stringify({
+                        channels: { ch1: { gain: 0.9, pan: 0 }, ch2: { gain: 0.7 } },
+                        master: { gain: 0.85 },
+                        reasoning: ['Kick anchored center', 'Bass trimmed to clear the kick']
+                    });
+                }
+                // default: studio pattern mode
+                return JSON.stringify({
+                    bpm: 124,
+                    patterns: {
+                        A: {
+                            length: 16,
+                            channels: {
+                                // 909 lanes: BD SD LT MT HT RS CP CH OH CR RD
+                                ch1: [
+                                    [2, null, null, null, 1, null, null, null, 2, null, null, null, 1, null, null, null],
+                                    [null, null, null, null, 2, null, null, null, null, null, null, null, 2, null, null, null],
+                                    [], [], [], [], [],
+                                    [1, null, 1, null, 1, null, 1, null, 1, null, 1, null, 1, null, 1, null],
+                                    [null, null, null, null, null, null, 1, null, null, null, null, null, null, null, 1, null]
+                                ],
+                                ch2: [
+                                    [[36, 2], null, null, null, [36, 2], null, null, null, [36, 2], null, null, null, [43, 2], null, null, null]
+                                ]
+                            }
+                        }
+                    },
+                    reasoning: ['Four-on-the-floor with accents on 1 and 9', 'Offbeat open hats for drive', 'Rolling bass locked to the kick']
+                });
+            }
             // Only used when there's no system message at all (truly ambiguous single-message calls).
             const looksLikeDrumKeywords = !systemPrompt &&
                 (lowerPrompt.includes('pattern') || lowerPrompt.includes('drum') || lowerPrompt.includes('[pattern]'));
